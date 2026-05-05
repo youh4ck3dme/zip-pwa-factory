@@ -1,16 +1,99 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Search, Loader2, Lock, Unlock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useDeveloper } from "@/hooks/useDeveloper";
+import { DevModal } from "@/components/DevModal";
+import { toast } from "sonner";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(false);
+  const navigate = useNavigate();
+  const dev = useDeveloper();
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    if (query.trim() === import.meta.env.VITE_DEV_PASSWORD || query.trim() === "23513900") {
+      dev.login(query.trim());
+      setQuery("");
+      setModal(true);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-pipeline", {
+        body: { query },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      navigate(`/pipeline/${data.id}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate pipeline");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="absolute top-0 right-0 p-4 z-20">
+        <button
+          onClick={() => setModal(true)}
+          className="p-2 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+          aria-label="Developer mode"
+        >
+          {dev.isDev ? <Unlock className="h-5 w-5 text-primary" /> : <Lock className="h-5 w-5" />}
+        </button>
+      </header>
+
+      <main className="flex-1 flex flex-col items-center justify-center px-4 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] glow rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-2xl text-center space-y-8 z-10">
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
+              Prompt Pipeline Builder
+            </h1>
+            <p className="text-muted-foreground text-lg md:text-xl font-medium">
+              Sequential AI workflows from a single sentence.
+            </p>
+          </div>
+
+          <form onSubmit={onSubmit} className="relative group">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
+              <Search className="h-5 w-5" />
+            </div>
+            <input
+              type="text"
+              className="w-full bg-card/80 backdrop-blur-sm border border-border rounded-full py-4 pl-12 pr-32 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/50 transition-all shadow-2xl"
+              placeholder="e.g. Summarize an article and translate it to Spanish"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              disabled={loading}
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={loading || !query.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2 rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-50 transition-all"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate"}
+            </button>
+          </form>
+
+          <p className="text-xs text-muted-foreground">
+            Variables: <code className="mono text-foreground/80">{"{{input}}"}</code> ·{" "}
+            <code className="mono text-foreground/80">{"{{previous_output}}"}</code>
+          </p>
+        </div>
+      </main>
+
+      <DevModal open={modal} onClose={() => setModal(false)} />
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
