@@ -5,7 +5,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function callAI(prompt: string) {
   const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -21,7 +28,8 @@ async function callAI(prompt: string) {
   });
   if (!r.ok) {
     const t = await r.text();
-    throw new Error(`AI ${r.status}: ${t.slice(0, 200)}`);
+    console.error(`AI ${r.status}:`, t.slice(0, 500));
+    throw new Error("AI request failed");
   }
   const j = await r.json();
   return j.choices?.[0]?.message?.content ?? "";
@@ -31,49 +39,76 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { pipeline_id, initial_input } = await req.json();
-    if (!pipeline_id) {
-      return new Response(JSON.stringify({ error: "pipeline_id required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
-    const supabase = createClient(
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims) return json({ error: "Unauthorized" }, 401);
+    const userId = claimsData.claims.sub;
+
+    const body = await req.json().catch(() => ({}));
+    const pipeline_id = body?.pipeline_id;
+    const initial_input = typeof body?.initial_input === "string" ? body.initial_input : "";
+
+    if (!pipeline_id || typeof pipeline_id !== "string" || !UUID_RE.test(pipeline_id))
+      return json({ error: "Invalid pipeline_id" }, 400);
+    if (initial_input.length > 5000) return json({ error: "initial_input too long (max 5000 chars)" }, 400);
+
+    // Use service role only for pipeline lookup + execution writes (after authz check)
+    const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: pipeline, error: pErr } = await supabase
+    const { data: pipeline, error: pErr } = await admin
       .from("pipelines")
-      .select("*")
+      .select("id, owner_id, steps")
       .eq("id", pipeline_id)
-      .single();
-    if (pErr || !pipeline) throw new Error("Pipeline not found");
+      .maybeSingle();
+    if (pErr || !pipeline) return json({ error: "Pipeline not found" }, 404);
 
-    const { data: exec, error: eErr } = await supabase
+    // Authorize: owner OR admin role
+    const { data: roleRow } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = !!roleRow;
+    if (pipeline.owner_id !== userId && !isAdmin) return json({ error: "Forbidden" }, 403);
+
+    const { data: exec, error: eErr } = await admin
       .from("executions")
       .insert({
         pipeline_id,
-        initial_input: initial_input ?? "",
+        owner_id: userId,
+        initial_input,
         status: "running",
         logs: [],
       })
       .select()
       .single();
-    if (eErr) throw eErr;
+    if (eErr) {
+      console.error("Insert execution failed:", eErr);
+      return json({ error: "Failed to start execution" }, 500);
+    }
 
-    // Run async — don't block the response
+    // Async execution
     (async () => {
       const logs: any[] = [];
       let prev = "";
       let failed = false;
       for (const step of pipeline.steps as any[]) {
         const promptUsed = (step.prompt || "")
-          .replaceAll("{{input}}", initial_input ?? "")
+          .replaceAll("{{input}}", initial_input)
           .replaceAll("{{previous_output}}", prev);
 
-        const startedAt = new Date().toISOString();
         logs.push({
           step_id: step.id,
           step_name: step.name,
@@ -81,10 +116,10 @@ Deno.serve(async (req) => {
           prompt_used: promptUsed,
           output: null,
           error: null,
-          started_at: startedAt,
+          started_at: new Date().toISOString(),
           completed_at: null,
         });
-        await supabase.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
+        await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
 
         try {
           const out = await callAI(promptUsed);
@@ -94,35 +129,31 @@ Deno.serve(async (req) => {
           last.output = out;
           last.completed_at = new Date().toISOString();
         } catch (err) {
+          console.error("Step failed:", err);
           const last = logs[logs.length - 1];
           last.status = "failed";
-          last.error = err instanceof Error ? err.message : String(err);
+          last.error = "Step execution failed";
           last.completed_at = new Date().toISOString();
           failed = true;
-          await supabase
+          await admin
             .from("executions")
             .update({ logs, status: "failed", updated_at: new Date().toISOString() })
             .eq("id", exec.id);
           break;
         }
-        await supabase.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
+        await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
       }
       if (!failed) {
-        await supabase
+        await admin
           .from("executions")
           .update({ logs, status: "completed", updated_at: new Date().toISOString() })
           .eq("id", exec.id);
       }
     })();
 
-    return new Response(JSON.stringify(exec), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(exec);
   } catch (e) {
-    console.error(e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("execute-pipeline error:", e);
+    return json({ error: "An internal error occurred" }, 500);
   }
 });
