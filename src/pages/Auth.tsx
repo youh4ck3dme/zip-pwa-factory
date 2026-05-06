@@ -42,7 +42,10 @@ export default function Auth() {
         if (error) throw error;
         toast.success("Check your email to confirm your account.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword(parsed.data);
+        const { error } = await supabase.auth.signInWithPassword({
+          email: parsed.data.email,
+          password: parsed.data.password,
+        });
         if (error) throw error;
         navigate("/", { replace: true });
       }
