@@ -1,31 +1,28 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Loader2, Lock, Unlock } from "lucide-react";
+import { Search, Loader2, LogOut, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeveloper } from "@/hooks/useDeveloper";
-import { DevModal } from "@/components/DevModal";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 const Index = () => {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [modal, setModal] = useState(false);
   const navigate = useNavigate();
-  const dev = useDeveloper();
+  const { isAdmin, signOut, user } = useAuth();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
-    if (query.trim() === import.meta.env.VITE_DEV_PASSWORD || query.trim() === "23513900") {
-      dev.login(query.trim());
-      setQuery("");
-      setModal(true);
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    if (trimmed.length > 2000) {
+      toast.error("Query too long (max 2000 chars)");
       return;
     }
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-pipeline", {
-        body: { query },
+        body: { query: trimmed },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -39,13 +36,19 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="absolute top-0 right-0 p-4 z-20">
+      <header className="absolute top-0 right-0 p-4 z-20 flex items-center gap-3">
+        {isAdmin && (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+            <Shield className="h-3.5 w-3.5" /> ADMIN
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
         <button
-          onClick={() => setModal(true)}
+          onClick={signOut}
           className="p-2 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-          aria-label="Developer mode"
+          aria-label="Sign out"
         >
-          {dev.isDev ? <Unlock className="h-5 w-5 text-primary" /> : <Lock className="h-5 w-5" />}
+          <LogOut className="h-5 w-5" />
         </button>
       </header>
 
@@ -68,6 +71,7 @@ const Index = () => {
             </div>
             <input
               type="text"
+              maxLength={2000}
               className="w-full bg-card/80 backdrop-blur-sm border border-border rounded-full py-4 pl-12 pr-32 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/50 transition-all shadow-2xl"
               placeholder="e.g. Summarize an article and translate it to Spanish"
               value={query}
@@ -90,8 +94,6 @@ const Index = () => {
           </p>
         </div>
       </main>
-
-      <DevModal open={modal} onClose={() => setModal(false)} />
     </div>
   );
 };

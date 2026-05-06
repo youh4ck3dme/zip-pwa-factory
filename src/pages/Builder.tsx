@@ -14,16 +14,20 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Lock,
-  Unlock,
+  Shield,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeveloper } from "@/hooks/useDeveloper";
-import { DevModal } from "@/components/DevModal";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 type Step = { id: string; name: string; prompt: string };
-type Pipeline = { id: string; title: string; query: string | null; steps: Step[] };
+type Pipeline = {
+  id: string;
+  title: string;
+  query: string | null;
+  steps: Step[];
+  owner_id: string | null;
+};
 type LogEntry = {
   step_id: string;
   step_name: string;
@@ -46,8 +50,7 @@ type TabId = "workflow" | "code" | "logs";
 
 export default function Builder() {
   const { id } = useParams<{ id: string }>();
-  const dev = useDeveloper();
-  const [devModal, setDevModal] = useState(false);
+  const { user, isAdmin } = useAuth();
 
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +61,9 @@ export default function Builder() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  // Load pipeline
+  const canEdit =
+    !!pipeline && !!user && (isAdmin || pipeline.owner_id === user.id);
+
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -70,6 +75,7 @@ export default function Builder() {
           id: data.id,
           title: data.title,
           query: data.query,
+          owner_id: data.owner_id,
           steps: (data.steps as unknown as Step[]) || [],
         });
       }
@@ -77,7 +83,6 @@ export default function Builder() {
     })();
   }, [id]);
 
-  // Realtime: subscribe to execution updates
   useEffect(() => {
     if (!execution?.id) return;
     const channel = supabase
@@ -134,7 +139,7 @@ export default function Builder() {
       .update({ title: pipeline.title, steps: pipeline.steps as any, updated_at: new Date().toISOString() })
       .eq("id", pipeline.id);
     setSaving(false);
-    if (error) toast.error("Save failed");
+    if (error) toast.error("Save failed: " + error.message);
     else {
       toast.success("Saved");
       setDirty(false);
@@ -143,6 +148,10 @@ export default function Builder() {
 
   const run = async () => {
     if (!pipeline) return;
+    if (initialInput.length > 5000) {
+      toast.error("Input too long (max 5000 chars)");
+      return;
+    }
     setRunning(true);
     setExecution(null);
     setTab("logs");
@@ -183,13 +192,12 @@ export default function Builder() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Top bar */}
       <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          {dev.isDev ? (
+          {canEdit ? (
             <input
               value={pipeline.title}
               onChange={(e) => {
@@ -202,7 +210,12 @@ export default function Builder() {
             <h1 className="text-lg font-semibold truncate flex-1">{pipeline.title}</h1>
           )}
           <div className="flex items-center gap-2">
-            {dev.isDev && (
+            {isAdmin && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                <Shield className="h-3 w-3" /> ADMIN
+              </span>
+            )}
+            {canEdit && (
               <button
                 onClick={save}
                 disabled={!dirty || saving}
@@ -212,17 +225,9 @@ export default function Builder() {
                 Save
               </button>
             )}
-            <button
-              onClick={() => setDevModal(true)}
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground transition-colors"
-              aria-label="Developer mode"
-            >
-              {dev.isDev ? <Unlock className="h-4 w-4 text-primary" /> : <Lock className="h-4 w-4" />}
-            </button>
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="max-w-7xl mx-auto px-4 flex gap-1 border-b border-border -mb-px">
           {([
             { id: "workflow", label: "Workflow", icon: <Workflow className="h-4 w-4" /> },
@@ -230,7 +235,7 @@ export default function Builder() {
             { id: "logs", label: "Logs", icon: <Terminal className="h-4 w-4" /> },
           ] as const).map((t) => {
             const active = tab === t.id;
-            const visible = t.id !== "code" || dev.isDev;
+            const visible = t.id !== "code" || canEdit;
             if (!visible) return null;
             return (
               <button
@@ -261,7 +266,7 @@ export default function Builder() {
                       <div className="h-7 w-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold mono">
                         {idx + 1}
                       </div>
-                      {dev.isDev ? (
+                      {canEdit ? (
                         <input
                           value={step.name}
                           onChange={(e) => updateStep(idx, { name: e.target.value })}
@@ -270,7 +275,7 @@ export default function Builder() {
                       ) : (
                         <span className="font-semibold flex-1">{step.name}</span>
                       )}
-                      {dev.isDev && pipeline.steps.length > 1 && (
+                      {canEdit && pipeline.steps.length > 1 && (
                         <button
                           onClick={() => removeStep(idx)}
                           className="text-muted-foreground hover:text-destructive transition-colors"
@@ -280,7 +285,7 @@ export default function Builder() {
                         </button>
                       )}
                     </div>
-                    {dev.isDev ? (
+                    {canEdit ? (
                       <textarea
                         value={step.prompt}
                         onChange={(e) => updateStep(idx, { prompt: e.target.value })}
@@ -301,7 +306,7 @@ export default function Builder() {
                 </div>
               ))}
 
-              {dev.isDev && (
+              {canEdit && (
                 <button
                   onClick={addStep}
                   className="w-full border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-card transition-colors flex items-center justify-center gap-2"
@@ -318,6 +323,7 @@ export default function Builder() {
                   value={initialInput}
                   onChange={(e) => setInitialInput(e.target.value)}
                   rows={6}
+                  maxLength={5000}
                   placeholder="Initial input — replaces {{input}} in step 1"
                   className="w-full bg-background border border-border rounded-md p-3 text-sm outline-none focus:ring-1 focus:ring-primary resize-y"
                 />
@@ -341,7 +347,7 @@ export default function Builder() {
           </div>
         )}
 
-        {tab === "code" && dev.isDev && (
+        {tab === "code" && canEdit && (
           <pre className="bg-card border border-border rounded-lg p-4 text-sm mono overflow-auto scrollbar-thin">
             {codeJson}
           </pre>
@@ -349,8 +355,6 @@ export default function Builder() {
 
         {tab === "logs" && <LogsView execution={execution} running={running} />}
       </main>
-
-      <DevModal open={devModal} onClose={() => setDevModal(false)} />
     </div>
   );
 }
@@ -423,7 +427,8 @@ function LogsView({ execution, running }: { execution: Execution | null; running
 }
 
 function StatusIcon({ status }: { status: LogEntry["status"] }) {
-  if (status === "completed") return <CheckCircle2 className="h-4 w-4 text-success" style={{ color: "hsl(var(--success))" }} />;
+  if (status === "completed")
+    return <CheckCircle2 className="h-4 w-4" style={{ color: "hsl(var(--success))" }} />;
   if (status === "failed") return <XCircle className="h-4 w-4 text-destructive" />;
   return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
 }
