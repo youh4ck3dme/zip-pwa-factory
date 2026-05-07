@@ -1,99 +1,223 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Loader2, LogOut, Shield } from "lucide-react";
+import { LogOut, Shield, ChevronDown } from "lucide-react";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { SECTIONS } from "@/components/cinematic/sections";
+import { ParticleHeadline } from "@/components/cinematic/ParticleHeadline";
+import { GenerateBar } from "@/components/cinematic/GenerateBar";
+import { SectionShell } from "@/components/cinematic/SectionShell";
+import { LiquidNavRail } from "@/components/cinematic/LiquidNavRail";
+import { GenesisLoader } from "@/components/cinematic/GenesisLoader";
+import { AscensionOrb } from "@/components/cinematic/AscensionOrb";
+import { GlassFooter } from "@/components/cinematic/GlassFooter";
+import { MagneticButton } from "@/components/cinematic/MagneticButton";
 
 const Index = () => {
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { isAdmin, signOut, user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [active, setActive] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Array<HTMLElement | null>>([]);
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    if (trimmed.length > 2000) {
+  const registerRef = (i: number, el: HTMLElement | null) => {
+    sectionRefs.current[i] = el;
+  };
+
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting && e.intersectionRatio > 0.5) {
+            const idx = Number((e.target as HTMLElement).dataset.index);
+            if (!Number.isNaN(idx)) setActive(idx);
+          }
+        });
+      },
+      { root, threshold: [0.5, 0.75] }
+    );
+    sectionRefs.current.forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  const jump = (i: number) => {
+    sectionRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const focusGenerate = () => {
+    jump(0);
+    setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>("input[placeholder^='Describe']");
+      el?.focus();
+    }, 700);
+  };
+
+  const handleGenerate = async (query: string) => {
+    if (query.length > 2000) {
       toast.error("Query too long (max 2000 chars)");
       return;
     }
     setLoading(true);
+    const startedAt = Date.now();
     try {
       const { data, error } = await supabase.functions.invoke("generate-pipeline", {
-        body: { query: trimmed },
+        body: { query },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      navigate(`/pipeline/${data.id}`);
+      const elapsed = Date.now() - startedAt;
+      const wait = Math.max(0, 1500 - elapsed);
+      setTimeout(() => navigate(`/pipeline/${data.id}`), wait);
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate pipeline");
-    } finally {
       setLoading(false);
+      toast.error(err.message || "Failed to generate pipeline");
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="absolute top-0 right-0 p-4 z-20 flex items-center gap-3">
+    <div className="bg-obsidian text-foreground">
+      {/* Floating top-right user controls */}
+      <div className="fixed top-5 right-5 z-50 flex items-center gap-3">
         {isAdmin && (
-          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-            <Shield className="h-3.5 w-3.5" /> ADMIN
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full glass text-amber text-[10px] font-bold tracking-widest">
+            <Shield className="h-3 w-3" /> ADMIN
           </span>
         )}
-        <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
+        <span className="text-[11px] text-muted-foreground hidden sm:inline mono">{user?.email}</span>
         <button
           onClick={signOut}
-          className="p-2 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+          className="p-2 rounded-full glass text-muted-foreground hover:text-amber transition-colors"
           aria-label="Sign out"
         >
-          <LogOut className="h-5 w-5" />
+          <LogOut className="h-4 w-4" />
         </button>
-      </header>
+      </div>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] glow rounded-full blur-3xl pointer-events-none" />
+      <LiquidNavRail total={SECTIONS.length} active={active} onJump={jump} />
 
-        <div className="w-full max-w-2xl text-center space-y-8 z-10">
-          <div className="space-y-4">
-            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
-              Prompt Pipeline Builder
-            </h1>
-            <p className="text-muted-foreground text-lg md:text-xl font-medium">
-              Sequential AI workflows from a single sentence.
-            </p>
+      <main
+        ref={containerRef}
+        className="snap-container hide-scrollbar"
+      >
+        {/* SECTION 01 — Genesis */}
+        <section
+          id="genesis"
+          ref={(el) => registerRef(0, el)}
+          data-index={0}
+          className="snap-section relative w-full overflow-hidden bg-obsidian"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--amber)/0.18)_0%,transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,hsl(var(--amber)/0.08)_0%,transparent_70%)]" />
+
+          {/* dust particles */}
+          <div className="absolute inset-0 pointer-events-none">
+            {Array.from({ length: 40 }).map((_, i) => (
+              <motion.span
+                key={i}
+                className="absolute h-1 w-1 rounded-full bg-amber/60"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                }}
+                animate={{
+                  y: [0, -30, 0],
+                  opacity: [0.2, 0.8, 0.2],
+                }}
+                transition={{
+                  duration: 4 + Math.random() * 4,
+                  repeat: Infinity,
+                  delay: Math.random() * 4,
+                }}
+              />
+            ))}
           </div>
 
-          <form onSubmit={onSubmit} className="relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
-              <Search className="h-5 w-5" />
-            </div>
-            <input
-              type="text"
-              maxLength={2000}
-              className="w-full bg-card/80 backdrop-blur-sm border border-border rounded-full py-4 pl-12 pr-32 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/50 transition-all shadow-2xl"
-              placeholder="e.g. Summarize an article and translate it to Spanish"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              disabled={loading}
-              autoFocus
-            />
-            <button
-              type="submit"
-              disabled={loading || !query.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2 rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-50 transition-all"
+          <div className="relative z-10 h-full flex flex-col items-center justify-center px-6 gap-12">
+            <motion.span
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.8 }}
+              className="mono text-amber/80 text-xs tracking-[0.5em]"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate"}
-            </button>
-          </form>
+              01 — GENESIS
+            </motion.span>
 
-          <p className="text-xs text-muted-foreground">
-            Variables: <code className="mono text-foreground/80">{"{{input}}"}</code> ·{" "}
-            <code className="mono text-foreground/80">{"{{previous_output}}"}</code>
-          </p>
-        </div>
+            <ParticleHeadline text="PROMPT PIPELINE BUILDER" />
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.6, duration: 0.8 }}
+              className="text-muted-foreground text-base md:text-lg max-w-xl text-center font-medium"
+            >
+              Sequential AI workflows — born from a single sentence.
+            </motion.p>
+
+            <GenerateBar loading={loading} onGenerate={handleGenerate} />
+          </div>
+
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute bottom-10 left-1/2 -translate-x-1/2 text-muted-foreground/60"
+          >
+            <ChevronDown className="h-6 w-6" />
+          </motion.div>
+        </section>
+
+        {/* SECTIONS 02–09 */}
+        {SECTIONS.slice(1, 9).map((s) => (
+          <SectionShell
+            key={s.id}
+            id={s.id}
+            index={s.index}
+            title={s.title}
+            description={s.description}
+            video={s.video}
+            registerRef={registerRef}
+          >
+            <MagneticButton onClick={focusGenerate}>Generate</MagneticButton>
+          </SectionShell>
+        ))}
+
+        {/* SECTION 10 — Ascension */}
+        <section
+          id="ascension"
+          ref={(el) => registerRef(9, el)}
+          data-index={9}
+          className="snap-section relative w-full overflow-hidden bg-obsidian"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--amber)/0.08)_0%,transparent_70%)]" />
+          <div className="relative z-10 h-full flex flex-col items-center justify-center gap-16 px-6">
+            <motion.span
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: false, amount: 0.5 }}
+              className="mono text-amber/80 text-xs tracking-[0.5em]"
+            >
+              10 — ASCENSION
+            </motion.span>
+            <AscensionOrb onActivate={focusGenerate} />
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false, amount: 0.5 }}
+              transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
+              className="text-muted-foreground text-center max-w-md"
+            >
+              Jeden prompt. Nekonečné možnosti. Sekvenčné AI workflows v jedinom dychu.
+            </motion.p>
+          </div>
+          <GlassFooter />
+        </section>
       </main>
+
+      <GenesisLoader active={loading} />
     </div>
   );
 };
