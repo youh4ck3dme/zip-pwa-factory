@@ -50,13 +50,13 @@ export const SectionShell = ({
       />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(var(--obsidian))_85%)]" />
 
-      <div className="relative z-10 h-full w-full flex flex-col items-center justify-center px-6">
+      <div className="relative z-10 h-full w-full flex flex-col items-center justify-center px-4 sm:px-6">
         <motion.span
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.4 }}
           transition={SPRING}
-          className="mono text-amber/80 text-xs tracking-[0.4em] mb-6"
+          className="mono text-amber/80 text-[10px] sm:text-xs tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6"
         >
           0{index} — PHASE
         </motion.span>
@@ -65,7 +65,7 @@ export const SectionShell = ({
           whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           viewport={{ once: false, amount: 0.4 }}
           transition={{ ...SPRING, delay: 0.05 }}
-          className="display text-center text-[clamp(2.5rem,8vw,6rem)] text-foreground leading-[0.95] max-w-5xl"
+          className="display text-center text-[clamp(2rem,8vw,6rem)] text-foreground leading-[0.95] max-w-5xl break-words"
         >
           {title}
         </motion.h2>
@@ -74,7 +74,7 @@ export const SectionShell = ({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.4 }}
           transition={{ ...SPRING, delay: 0.15 }}
-          className="mt-8 text-center text-muted-foreground text-lg md:text-xl max-w-2xl font-medium"
+          className="mt-5 sm:mt-8 text-center text-muted-foreground text-base sm:text-lg md:text-xl max-w-2xl font-medium px-2"
         >
           {description}
         </motion.p>
@@ -84,7 +84,7 @@ export const SectionShell = ({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.4 }}
             transition={{ ...SPRING, delay: 0.25 }}
-            className="mt-12"
+            className="mt-8 sm:mt-12"
           >
             {children}
           </motion.div>

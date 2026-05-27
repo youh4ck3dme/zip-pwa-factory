@@ -13,7 +13,7 @@ export const AscensionOrb = ({ onActivate }: Props) => {
       onClick={onActivate}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className="relative grid place-items-center w-[280px] h-[280px] focus:outline-none"
+      className="relative grid place-items-center w-[200px] h-[200px] sm:w-[240px] sm:h-[240px] md:w-[280px] md:h-[280px] focus:outline-none"
       aria-label="Start your genesis"
     >
       <motion.div
@@ -22,14 +22,14 @@ export const AscensionOrb = ({ onActivate }: Props) => {
         transition={{ type: "spring", stiffness: 100, damping: 20 }}
       />
       <motion.div
-        className="relative w-32 h-32 rounded-full bg-gradient-to-br from-amber to-amber-glow animate-orb amber-glow"
+        className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-amber to-amber-glow animate-orb amber-glow"
         animate={{ scale: hover ? 1.15 : 1 }}
         transition={{ type: "spring", stiffness: 120, damping: 18 }}
       />
       <motion.span
         animate={{ opacity: hover ? 1 : 0, y: hover ? 0 : 10 }}
         transition={{ duration: 0.4 }}
-        className="absolute -bottom-12 display text-amber tracking-[0.3em] text-sm whitespace-nowrap"
+        className="absolute -bottom-10 sm:-bottom-12 display text-amber tracking-[0.25em] sm:tracking-[0.3em] text-xs sm:text-sm whitespace-nowrap"
       >
         START YOUR GENESIS
       </motion.span>

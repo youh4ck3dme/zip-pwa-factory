@@ -193,8 +193,8 @@ export default function Builder() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3">
+          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           {canEdit ? (
@@ -204,14 +204,14 @@ export default function Builder() {
                 setPipeline({ ...pipeline, title: e.target.value });
                 setDirty(true);
               }}
-              className="bg-transparent text-lg font-semibold outline-none focus:bg-muted/50 rounded px-2 py-1 -mx-2 flex-1 min-w-0"
+              className="bg-transparent text-base sm:text-lg font-semibold outline-none focus:bg-muted/50 rounded px-2 py-1 -mx-2 flex-1 min-w-0"
             />
           ) : (
-            <h1 className="text-lg font-semibold truncate flex-1">{pipeline.title}</h1>
+            <h1 className="text-base sm:text-lg font-semibold truncate flex-1">{pipeline.title}</h1>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isAdmin && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
                 <Shield className="h-3 w-3" /> ADMIN
               </span>
             )}
@@ -219,16 +219,16 @@ export default function Builder() {
               <button
                 onClick={save}
                 disabled={!dirty || saving}
-                className="flex items-center gap-2 bg-muted hover:bg-accent text-foreground px-3 py-1.5 rounded-md text-sm disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2 bg-muted hover:bg-accent text-foreground px-2.5 sm:px-3 py-1.5 rounded-md text-sm disabled:opacity-50 transition-colors"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save
+                <span className="hidden sm:inline">Save</span>
               </button>
             )}
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 flex gap-1 border-b border-border -mb-px">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 flex gap-1 border-b border-border -mb-px overflow-x-auto hide-scrollbar">
           {([
             { id: "workflow", label: "Workflow", icon: <Workflow className="h-4 w-4" /> },
             { id: "code", label: "Code", icon: <CodeIcon className="h-4 w-4" /> },
@@ -241,7 +241,7 @@ export default function Builder() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 px-3 py-2.5 text-sm border-b-2 transition-colors ${
+                className={`flex items-center gap-2 px-3 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
                   active
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -255,9 +255,9 @@ export default function Builder() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {tab === "workflow" && (
-          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+          <div className="grid lg:grid-cols-[1fr_360px] gap-4 sm:gap-6">
             <section className="space-y-3">
               {pipeline.steps.map((step, idx) => (
                 <div key={step.id}>
