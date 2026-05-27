@@ -82,13 +82,13 @@ const Index = () => {
   return (
     <div className="bg-obsidian text-foreground">
       {/* Floating top-right user controls */}
-      <div className="fixed top-5 right-5 z-50 flex items-center gap-3">
+      <div className="fixed top-3 right-3 sm:top-5 sm:right-5 z-50 flex items-center gap-2 sm:gap-3">
         {isAdmin && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full glass text-amber text-[10px] font-bold tracking-widest">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full glass text-amber text-[9px] sm:text-[10px] font-bold tracking-widest">
             <Shield className="h-3 w-3" /> ADMIN
           </span>
         )}
-        <span className="text-[11px] text-muted-foreground hidden sm:inline mono">{user?.email}</span>
+        <span className="text-[11px] text-muted-foreground hidden md:inline mono max-w-[180px] truncate">{user?.email}</span>
         <button
           onClick={signOut}
           className="p-2 rounded-full glass text-muted-foreground hover:text-amber transition-colors"
@@ -137,12 +137,12 @@ const Index = () => {
             ))}
           </div>
 
-          <div className="relative z-10 h-full flex flex-col items-center justify-center px-6 gap-12">
+          <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 sm:px-6 gap-6 sm:gap-10 md:gap-12">
             <motion.span
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.8 }}
-              className="mono text-amber/80 text-xs tracking-[0.5em]"
+              className="mono text-amber/80 text-[10px] sm:text-xs tracking-[0.4em] sm:tracking-[0.5em]"
             >
               01 — GENESIS
             </motion.span>
@@ -153,7 +153,7 @@ const Index = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1.6, duration: 0.8 }}
-              className="text-muted-foreground text-base md:text-lg max-w-xl text-center font-medium"
+              className="text-muted-foreground text-sm sm:text-base md:text-lg max-w-xl text-center font-medium px-2"
             >
               Sequential AI workflows — born from a single sentence.
             </motion.p>
@@ -164,9 +164,9 @@ const Index = () => {
           <motion.div
             animate={{ y: [0, 10, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="absolute bottom-10 left-1/2 -translate-x-1/2 text-muted-foreground/60"
+            className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 text-muted-foreground/60"
           >
-            <ChevronDown className="h-6 w-6" />
+            <ChevronDown className="h-5 w-5 sm:h-6 sm:w-6" />
           </motion.div>
         </section>
 
@@ -193,12 +193,12 @@ const Index = () => {
           className="snap-section relative w-full overflow-hidden bg-obsidian"
         >
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--amber)/0.08)_0%,transparent_70%)]" />
-          <div className="relative z-10 h-full flex flex-col items-center justify-center gap-16 px-6">
+          <div className="relative z-10 h-full flex flex-col items-center justify-center gap-8 sm:gap-12 md:gap-16 px-4 sm:px-6 pb-24">
             <motion.span
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: false, amount: 0.5 }}
-              className="mono text-amber/80 text-xs tracking-[0.5em]"
+              className="mono text-amber/80 text-[10px] sm:text-xs tracking-[0.4em] sm:tracking-[0.5em]"
             >
               10 — ASCENSION
             </motion.span>
@@ -208,7 +208,7 @@ const Index = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, amount: 0.5 }}
               transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
-              className="text-muted-foreground text-center max-w-md"
+              className="text-muted-foreground text-center text-sm sm:text-base max-w-md px-2"
             >
               Jeden prompt. Nekonečné možnosti. Sekvenčné AI workflows v jedinom dychu.
             </motion.p>

@@ -23,24 +23,25 @@ export const GenerateBar = ({ loading, onGenerate }: Props) => {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1, delay: 1.2 }}
-      className="relative w-full max-w-2xl mx-auto"
+      className="relative w-full max-w-2xl mx-auto px-2 sm:px-0"
     >
-      <div className="absolute inset-0 rounded-full animate-pulse-amber pointer-events-none" />
-      <div className="relative flex items-center glass rounded-full pl-6 pr-2 py-2">
-        <Search className="h-5 w-5 text-amber/80 shrink-0" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          maxLength={2000}
-          disabled={loading}
-          placeholder="Describe a pipeline…  e.g. summarize then translate to Spanish"
-          className="flex-1 bg-transparent outline-none px-4 py-2.5 text-foreground placeholder:text-muted-foreground/70 text-base"
-          autoFocus
-        />
+      <div className="absolute inset-2 sm:inset-0 rounded-3xl sm:rounded-full animate-pulse-amber pointer-events-none" />
+      <div className="relative flex flex-col sm:flex-row sm:items-center glass rounded-3xl sm:rounded-full p-2 sm:pl-6 sm:pr-2 sm:py-2 gap-2 sm:gap-0">
+        <div className="flex items-center flex-1 min-w-0 pl-3 sm:pl-0">
+          <Search className="h-5 w-5 text-amber/80 shrink-0" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            maxLength={2000}
+            disabled={loading}
+            placeholder="Describe a pipeline…"
+            className="flex-1 min-w-0 bg-transparent outline-none px-3 sm:px-4 py-2.5 text-foreground placeholder:text-muted-foreground/70 text-sm sm:text-base"
+          />
+        </div>
         <button
           type="submit"
           disabled={loading || !q.trim()}
-          className="relative inline-flex items-center gap-2 px-6 py-3 rounded-full bg-amber text-obsidian font-bold text-sm uppercase tracking-[0.18em] disabled:opacity-50 transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          className="relative inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-full bg-amber text-obsidian font-bold text-xs sm:text-sm uppercase tracking-[0.18em] disabled:opacity-50 transition-transform hover:scale-[1.03] active:scale-[0.98] shrink-0"
           style={{ boxShadow: "0 0 40px hsl(var(--amber)/0.5)" }}
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate"}

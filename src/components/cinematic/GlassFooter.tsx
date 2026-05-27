@@ -1,9 +1,9 @@
 import { Github, Twitter, Globe } from "lucide-react";
 
 export const GlassFooter = () => (
-  <footer className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
-    <div className="glass rounded-full px-6 py-3 flex items-center gap-5 text-muted-foreground">
-      <span className="mono text-xs tracking-widest">© PROMPT PIPELINE</span>
+  <footer className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-20 w-[calc(100%-2rem)] sm:w-auto flex justify-center">
+    <div className="glass rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-3 sm:gap-5 text-muted-foreground">
+      <span className="mono text-[10px] sm:text-xs tracking-widest whitespace-nowrap">© PROMPT PIPELINE</span>
       <span className="h-3 w-px bg-white/15" />
       {[Github, Twitter, Globe].map((Icon, i) => (
         <button

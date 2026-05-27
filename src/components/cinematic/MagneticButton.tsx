@@ -43,9 +43,9 @@ export const MagneticButton = ({
       onMouseLeave={reset}
       style={{ x: sx, y: sy }}
       className={cn(
-        "group relative inline-flex items-center justify-center px-8 py-3.5",
+        "group relative inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-3.5",
         "rounded-full border border-amber/40 bg-transparent text-amber",
-        "text-sm font-bold uppercase tracking-[0.2em]",
+        "text-xs sm:text-sm font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em]",
         "transition-colors hover:bg-amber/10 hover:border-amber",
         "disabled:opacity-40 disabled:cursor-not-allowed will-change-transform",
         className
