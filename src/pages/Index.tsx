@@ -73,9 +73,15 @@ const Index = () => {
       const elapsed = Date.now() - startedAt;
       const wait = Math.max(0, 1500 - elapsed);
       setTimeout(() => navigate(`/pipeline/${data.id}`), wait);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setLoading(false);
-      toast.error(err.message || "Failed to generate pipeline");
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message: unknown }).message)
+            : "Failed to generate pipeline";
+      toast.error(message || "Failed to generate pipeline");
     }
   };
 
