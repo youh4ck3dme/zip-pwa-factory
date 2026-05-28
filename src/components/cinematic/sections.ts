@@ -81,3 +81,6 @@ export const SECTIONS: CinematicSection[] = [
     description: "Začnite svoju genézu.",
   },
 ];
+
+export const ACTIVE_SECTION_COUNT = 2;
+export const ACTIVE_SECTIONS: CinematicSection[] = SECTIONS.slice(0, ACTIVE_SECTION_COUNT);

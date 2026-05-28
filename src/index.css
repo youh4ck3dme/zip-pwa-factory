@@ -127,11 +127,15 @@
   .snap-section {
     scroll-snap-align: start;
     scroll-snap-stop: always;
+    min-height: 100svh;
     height: 100dvh;
   }
   .snap-container {
     scroll-snap-type: y mandatory;
     overflow-y: scroll;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    min-height: 100svh;
     height: 100dvh;
   }
   .hide-scrollbar::-webkit-scrollbar { display: none; }

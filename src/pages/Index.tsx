@@ -5,14 +5,12 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { SECTIONS } from "@/components/cinematic/sections";
+import { ACTIVE_SECTIONS } from "@/components/cinematic/sections";
 import { ParticleHeadline } from "@/components/cinematic/ParticleHeadline";
 import { GenerateBar } from "@/components/cinematic/GenerateBar";
 import { SectionShell } from "@/components/cinematic/SectionShell";
 import { LiquidNavRail } from "@/components/cinematic/LiquidNavRail";
 import { GenesisLoader } from "@/components/cinematic/GenesisLoader";
-import { AscensionOrb } from "@/components/cinematic/AscensionOrb";
-import { GlassFooter } from "@/components/cinematic/GlassFooter";
 import { MagneticButton } from "@/components/cinematic/MagneticButton";
 import { GL } from "@/components/gl";
 
@@ -23,6 +21,7 @@ const Index = () => {
   const [active, setActive] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Array<HTMLElement | null>>([]);
+  const visibleSections = ACTIVE_SECTIONS;
 
   const registerRef = (i: number, el: HTMLElement | null) => {
     sectionRefs.current[i] = el;
@@ -99,7 +98,7 @@ const Index = () => {
         </button>
       </div>
 
-      <LiquidNavRail total={SECTIONS.length} active={active} onJump={jump} />
+      <LiquidNavRail total={visibleSections.length} active={active} onJump={jump} />
 
       <main
         ref={containerRef}
@@ -150,8 +149,8 @@ const Index = () => {
           </motion.div>
         </section>
 
-        {/* SECTIONS 02–09 */}
-        {SECTIONS.slice(1, 9).map((s) => (
+        {/* SECTION 02 — keep only first two 100vh sections */}
+        {visibleSections.slice(1).map((s) => (
           <SectionShell
             key={s.id}
             id={s.id}
@@ -165,37 +164,6 @@ const Index = () => {
             <MagneticButton onClick={focusGenerate}>Generate</MagneticButton>
           </SectionShell>
         ))}
-
-        {/* SECTION 10 — Ascension */}
-        <section
-          id="ascension"
-          ref={(el) => registerRef(9, el)}
-          data-index={9}
-          className="snap-section relative w-full overflow-hidden bg-obsidian"
-        >
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--amber)/0.08)_0%,transparent_70%)]" />
-          <div className="relative z-10 h-full flex flex-col items-center justify-center gap-8 sm:gap-12 md:gap-16 px-4 sm:px-6 pb-24">
-            <motion.span
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: false, amount: 0.5 }}
-              className="mono text-amber/80 text-[10px] sm:text-xs tracking-[0.4em] sm:tracking-[0.5em]"
-            >
-              10 — ASCENSION
-            </motion.span>
-            <AscensionOrb onActivate={focusGenerate} />
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.5 }}
-              transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
-              className="text-muted-foreground text-center text-sm sm:text-base max-w-md px-2"
-            >
-              Jeden prompt. Nekonečné možnosti. Sekvenčné AI workflows v jedinom dychu.
-            </motion.p>
-          </div>
-          <GlassFooter />
-        </section>
       </main>
 
       <GenesisLoader active={loading} />
