@@ -14,6 +14,7 @@ import { GenesisLoader } from "@/components/cinematic/GenesisLoader";
 import { AscensionOrb } from "@/components/cinematic/AscensionOrb";
 import { GlassFooter } from "@/components/cinematic/GlassFooter";
 import { MagneticButton } from "@/components/cinematic/MagneticButton";
+import { GL } from "@/components/gl";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -111,31 +112,10 @@ const Index = () => {
           data-index={0}
           className="snap-section relative w-full overflow-hidden bg-obsidian"
         >
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--amber)/0.18)_0%,transparent_60%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,hsl(var(--amber)/0.08)_0%,transparent_70%)]" />
-
-          {/* dust particles */}
-          <div className="absolute inset-0 pointer-events-none">
-            {Array.from({ length: 40 }).map((_, i) => (
-              <motion.span
-                key={i}
-                className="absolute h-1 w-1 rounded-full bg-amber/60"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                }}
-                animate={{
-                  y: [0, -30, 0],
-                  opacity: [0.2, 0.8, 0.2],
-                }}
-                transition={{
-                  duration: 4 + Math.random() * 4,
-                  repeat: Infinity,
-                  delay: Math.random() * 4,
-                }}
-              />
-            ))}
-          </div>
+          {/* MAIN HERO — GPGPU particle field */}
+          <GL />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--amber)/0.12)_0%,transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-obsidian pointer-events-none" />
 
           <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 sm:px-6 gap-6 sm:gap-10 md:gap-12">
             <motion.span
@@ -179,6 +159,7 @@ const Index = () => {
             title={s.title}
             description={s.description}
             video={s.video}
+            scene={s.scene}
             registerRef={registerRef}
           >
             <MagneticButton onClick={focusGenerate}>Generate</MagneticButton>

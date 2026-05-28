@@ -1,3 +1,5 @@
+export type SceneKind = "mesh" | "icosa" | "curl" | "quantum";
+
 export interface CinematicSection {
   id: string;
   index: number;
@@ -5,6 +7,7 @@ export interface CinematicSection {
   description: string;
   video?: string;
   poster?: string;
+  scene?: SceneKind;
 }
 
 // Pexels CDN MP4 placeholders (royalty-free)
@@ -20,28 +23,28 @@ export const SECTIONS: CinematicSection[] = [
     index: 2,
     title: "Neural Weaver",
     description: "Spletáme vlákna logiky do autonómnych strojov.",
-    video: "https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4",
+    scene: "mesh",
   },
   {
     id: "architect-pulse",
     index: 3,
     title: "Architect Pulse",
     description: "Presnosť v každom pixeli vášho workflowu.",
-    video: "https://videos.pexels.com/video-files/2519660/2519660-uhd_2560_1440_30fps.mp4",
+    scene: "icosa",
   },
   {
     id: "liquid-flow",
     index: 4,
     title: "Liquid Flow",
     description: "Plynulosť, ktorá nepozná hranice.",
-    video: "https://videos.pexels.com/video-files/4434242/4434242-uhd_2560_1440_24fps.mp4",
+    scene: "curl",
   },
   {
     id: "quantum-forge",
     index: 5,
     title: "Quantum Forge",
     description: "Kovanie inteligencie pod tlakom dát.",
-    video: "https://videos.pexels.com/video-files/3046796/3046796-uhd_2560_1440_24fps.mp4",
+    scene: "quantum",
   },
   {
     id: "echo-chamber",

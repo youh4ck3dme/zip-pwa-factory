@@ -1,91 +1,50 @@
+## Nový cinematic systém — 5 hero-grade WebGL animácií
 
-# Cinematic Prompt Pipeline Builder – Plán
+### Závislosti (pinned verzie pre R18)
+```
+bun add three@^0.160 @react-three/fiber@^8.18 @react-three/drei@^9.122 maath
+bun add -d @types/three
+```
+Leva ani r3f-perf nepridávam (dev-only tooling, do produkcie netreba).
 
-Prerobím `/` (Home) na full-screen snap-scroll cinematic zážitok s 10 sekciami a pri stlačení **Generate** sa spustí particle/liquid loader, ktorý beží paralelne s AI volaním a po dokončení redirectne na `/pipeline/:id`.
+### Architektúra
+Vytvorím adresár `src/components/gl/` s GPGPU particle systémom presne podľa tvojho kódu (utils.ts, simulationMaterial.ts, pointMaterial.ts, vignetteShader.ts, particles.tsx, index.tsx). `GL` komponent dostane fixné, vyladené uniformy (žiadna leva-panel závislosť) — hodnoty z tvojho preset configu (speed 1.0, focus 3.8, aperture 1.79, pointSize 10, opacity 0.8, planeScale 10, noiseScale 0.6, noiseIntensity 0.52).
 
-## 1. Závislosti & téma
+Každá animácia bude samostatný komponent v `src/components/gl/scenes/` aby šli line-by-line nahradiť / vypnúť.
 
-- `bun add framer-motion`
-- `src/index.css`: rozšíriť tokens – `--obsidian: 0 0% 0%`, `--amber: 33 100% 50%` (#FF8C00), `--amber-glow`, glass utility (`bg-white/5 backdrop-blur-xl`), `will-change-transform` helper, custom keyframes (pulse-amber, dust, liquid-warp).
-- `tailwind.config.ts`: pridať `amber`, `obsidian` farby + spring-friendly easing.
-- Font: Inter cez `<link>` v `index.html` (display swap), `font-black tracking-tighter uppercase` pre headlines.
-
-## 2. Štruktúra súborov (nové)
+### 5 hlavných animácií (poradie sekcií)
 
 ```
-src/
-  pages/Index.tsx              (prepísaný – orchestrátor sekcií)
-  components/cinematic/
-    SnapContainer.tsx          (snap-y snap-mandatory, h-[100dvh] sekcie)
-    LiquidNavRail.tsx          (vertikálna lišta + amber „kvapka")
-    ParticleHeadline.tsx       (písmená -> dust -> particles on scroll)
-    GenerateBar.tsx            (search input + magnetický amber CTA)
-    SectionShell.tsx           (video bg + parallax + overlay + AnimatePresence liquid clip-path)
-    MagneticButton.tsx         (ghost button s magnet + volumetric glow)
-    GenesisLoader.tsx          (full-screen particle/liquid overlay počas generovania)
-    AscensionOrb.tsx           (sekcia 10 – pulsing orb + reveal CTA)
-    GlassFooter.tsx
-    sections.ts                (data 10 sekcií: titul, popis, video URL)
+01 GENESIS         → GPGPU Particle Field (tvoj kód, MAIN HERO)
+02 NEURAL WEAVER   → Animated Mesh Gradient (WebGL shader, jemný liquid blob)
+03 ARCHITECT PULSE → Wireframe Icosahedron + distortion noise
+04 LIQUID FLOW     → Flowing Curl-Noise Particle Stream
+05 QUANTUM FORGE   → Instanced Cubes Grid s wave displacement
+06–09              → pôvodné video sekcie (posunuté o jednu nižšie)
+10 ASCENSION       → ponechané (orb CTA)
 ```
 
-## 3. Sekcie (10 × 100dvh, snap)
+Pôvodný 01 Genesis (ParticleHeadline + GenerateBar) sa **NEPRESUVA** — Genesis ostáva ako hero so search-barom, ale **na pozadí pobeží GPGPU particle field** namiesto statickej dust-vrstvy. To je tvoj "main" — najsilnejšia animácia tvorí pozadie celej hero sekcie kde človek pristane.
 
-1. **Genesis** – ParticleHeadline „PROMPT PIPELINE BUILDER" + GenerateBar.
-2. **Neural Weaver** – „Spletáme vlákna logiky do autonómnych strojov."
-3. **Architect Pulse** – „Presnosť v každom pixeli vášho workflowu."
-4. **Liquid Flow** – „Plynulosť, ktorá nepozná hranice."
-5. **Quantum Forge** – „Kovanie inteligencie pod tlakom dát."
-6. **Echo Chamber** – „Každý prompt rezonuje vo viacerých vrstvách."
-7. **Prism Logic** – „Jeden vstup, spektrum výstupov."
-8. **Velvet Engine** – „Surová sila zabalená do hodvábu."
-9. **Aurora Sync** – „Synchronizácia mysle a stroja."
-10. **Ascension** – čierna prázdnota, AscensionOrb → „START YOUR GENESIS" → scroll-to-top / focus na GenerateBar + glass footer.
+Sekcie 02–05 dostanú každú jednu z nových WebGL animácií namiesto video-bg. Sekcie 06–09 ostávajú s pôvodnými Pexels video pozadiami.
 
-Každá sekcia 02–09: video bg (Pexels CDN URL placeholder), `motion.div` s parallax `useScroll`+`useTransform`, liquid clip-path prechod cez `AnimatePresence`.
+### Performance & fallbacks
+- `<Canvas dpr={[1, 1.5]} gl={{ antialias: false, powerPreference: "high-performance" }}>` — DPR cap 1.5 pre mobil
+- `frameloop="demand"` na neaktívnych sekciách, `"always"` len keď je sekcia vo viewporte (IntersectionObserver toggle)
+- `prefers-reduced-motion` → render statického fallback gradientu
+- size pre GPGPU znížim na 256 na `useIsMobile()` → 4× menej particles, plynulo aj na iPhone 12
+- Každý Canvas je `position:absolute inset-0 -z-10 pointer-events-none` aby neblokoval scroll / input
 
-## 4. Hero anim (Section 01)
+### Technické detaily (sumár implementácie)
+1. `gl/shaders/*` — presne tvoj GLSL kód, žiadna úprava logiky.
+2. `gl/particles.tsx` — tvoj kód, ale odstránim `leva` import.
+3. `gl/index.tsx` (`<GL />`) — hardcoded uniformy z tvojho presetu, prop `intensity` a `size` pre zníženie na mobile.
+4. `gl/scenes/MeshGradient.tsx`, `Icosahedron.tsx`, `CurlStream.tsx`, `QuantumGrid.tsx` — 4 nové scény, každá s vlastným Canvas + jedno-shader pipeline.
+5. `Index.tsx` — Genesis dostane `<GL>` ako absolútny background layer pod existujúce `ParticleHeadline + GenerateBar`. Sekcie 02–05 v `SECTIONS` array dostanú nový prop `scene: "mesh" | "icosa" | "curl" | "quantum"` ktorý `SectionShell` vyrenderuje namiesto videa.
 
-- Písmená split → `motion.span` stagger 0.05s, init `opacity:0, y:20, filter:blur(20px)`, anim `opacity:1, y:0, blur:0` so spring `{stiffness:100, damping:20, mass:1}`.
-- Cloud zlatého prachu: SVG/Canvas particle layer (~150 partíc) animovaný na mount.
-- Scroll disintegration: `useScroll` na hero – progress 0→1 transformuje písmená na particle layer (opacity headline ↓, particles ↑ + scatter podľa scroll Y).
+### Súbory
+- **new**: `src/components/gl/{index.tsx, particles.tsx}`, `src/components/gl/shaders/{utils.ts, simulationMaterial.ts, pointMaterial.ts, vignetteShader.ts}`, `src/components/gl/scenes/{MeshGradient.tsx, Icosahedron.tsx, CurlStream.tsx, QuantumGrid.tsx}`
+- **edit**: `src/components/cinematic/SectionShell.tsx` (podpora `scene` propu), `src/components/cinematic/sections.ts` (priradenie scén 02–05), `src/pages/Index.tsx` (GL background v Genesis)
+- **install**: `three`, `@react-three/fiber@^8.18`, `@react-three/drei@^9.122`, `maath`
 
-## 5. Liquid Nav Rail
-
-- `fixed right-6 top-1/2`, vertikálna línia 2px × 60vh.
-- Amber „drop" `motion.div` pozicionovaný cez `springY` z aktívneho indexu (IntersectionObserver per section).
-- Pri zmene: scaleY 1.6 → 1 (elastic stretch) cez spring.
-
-## 6. Generate flow
-
-`GenerateBar` v Section 01:
-- Pulsing aura: `animate-[pulse-amber_2s_ease-in-out_infinite]`.
-- Submit → `setLoading(true)` → mount `<GenesisLoader />` (fixed inset-0 z-50).
-- Loader: čierny void + tisíce particles (canvas, requestAnimationFrame) konvergujúce do amber orb v strede + liquid SVG clip-path warp; text ticker („Weaving neurons…", „Forging pipeline…", „Synchronizing…").
-- Paralelne `supabase.functions.invoke("generate-pipeline", ...)`. Po response: orb „explode" anim 600ms → `navigate(/pipeline/:id)`.
-- Min display 1.5s aby anim nepreblikla; error → loader zmizne, toast.
-
-## 7. Magnetic ghost button
-
-- `onMouseMove` počíta offset cursor↔button center, aplikuje `transform: translate(x*0.3, y*0.3)` cez spring.
-- Hover: amber outline + `box-shadow: 0 0 60px hsl(var(--amber)/0.6)` volumetric glow.
-
-## 8. Performance & a11y
-
-- `will-change: transform` len na aktívne anim layery.
-- `prefers-reduced-motion`: zredukovať stagger/particles count, vypnúť parallax.
-- Particle canvas: pause keď tab hidden (`document.visibilitychange`).
-- Zachovať header s ADMIN badge / signOut – presunutý do `GlassFooter` aj ako floating top-right glass chip.
-
-## 9. Bez zmeny v BE / auth
-
-- Žiadne zmeny v edge functions, RLS, Builderi, Auth.
-- `RequireAuth` zostáva, len Index.tsx + nové komponenty.
-
-## 10. Akceptačné kritériá
-
-- Plynulý 60fps snap-scroll na desktope aj mobile (100dvh).
-- Headline sa zostavuje z dust, pri scrolle sa rozpadá na particles.
-- Liquid prechod medzi sekciami viditeľný (clip-path morph).
-- Nav rail drop sa elasticky natiahne pri zmene sekcie.
-- Generate spustí cinematic loader, po úspechu redirect na pipeline stránku.
-- Sekcia 10 = čierny void + orb reveal CTA.
+Schvál a začnem implementovať.

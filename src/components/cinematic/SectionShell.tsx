@@ -1,6 +1,20 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useRef, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
+import type { SceneKind } from "./sections";
+
+const MeshGradientScene = lazy(() =>
+  import("@/components/gl/scenes/MeshGradient").then((m) => ({ default: m.MeshGradientScene }))
+);
+const IcosahedronScene = lazy(() =>
+  import("@/components/gl/scenes/Icosahedron").then((m) => ({ default: m.IcosahedronScene }))
+);
+const CurlStreamScene = lazy(() =>
+  import("@/components/gl/scenes/CurlStream").then((m) => ({ default: m.CurlStreamScene }))
+);
+const QuantumGridScene = lazy(() =>
+  import("@/components/gl/scenes/QuantumGrid").then((m) => ({ default: m.QuantumGridScene }))
+);
 
 interface Props {
   id: string;
@@ -8,6 +22,7 @@ interface Props {
   title: string;
   description: string;
   video?: string;
+  scene?: SceneKind;
   children?: ReactNode;
   registerRef?: (i: number, el: HTMLElement | null) => void;
   className?: string;
@@ -15,8 +30,17 @@ interface Props {
 
 const SPRING = { type: "spring" as const, stiffness: 100, damping: 20, mass: 1 };
 
+const SceneFor = ({ kind }: { kind: SceneKind }) => {
+  switch (kind) {
+    case "mesh": return <MeshGradientScene />;
+    case "icosa": return <IcosahedronScene />;
+    case "curl": return <CurlStreamScene />;
+    case "quantum": return <QuantumGridScene />;
+  }
+};
+
 export const SectionShell = ({
-  id, index, title, description, video, children, registerRef, className,
+  id, index, title, description, video, scene, children, registerRef, className,
 }: Props) => {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
@@ -31,7 +55,12 @@ export const SectionShell = ({
       data-index={index - 1}
       className={cn("snap-section relative w-full overflow-hidden bg-obsidian", className)}
     >
-      {video && (
+      {scene && (
+        <Suspense fallback={null}>
+          <SceneFor kind={scene} />
+        </Suspense>
+      )}
+      {video && !scene && (
         <motion.div className="absolute inset-0 will-change-transform" style={{ y, scale }}>
           <video
             src={video}
