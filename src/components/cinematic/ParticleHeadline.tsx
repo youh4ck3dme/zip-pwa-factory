@@ -5,81 +5,141 @@ interface Props {
   text: string;
 }
 
-const SPRING = { type: "spring" as const, stiffness: 100, damping: 20, mass: 1 };
+const SPRING = { type: "spring" as const, stiffness: 120, damping: 18, mass: 0.9 };
 
-interface LetterProps {
+/** Stable pseudo-random in [0, 1) — same offsets every render. */
+const seeded = (n: number) => {
+  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+interface LetterMeta {
   ch: string;
-  idx: number;
-  scatter: MotionValue<number>;
+  word: number;
   dx: number;
   dy: number;
   rot: number;
+  delay: number;
+  originX: number;
+  originY: number;
 }
 
-const Letter = ({ ch, idx, scatter, dx, dy, rot }: LetterProps) => {
-  const x = useTransform(scatter, [0, 1], [0, dx]);
-  const y = useTransform(scatter, [0, 1], [0, dy]);
-  const r = useTransform(scatter, [0, 1], [0, rot]);
+interface LetterProps {
+  meta: LetterMeta;
+  scatter: MotionValue<number>;
+}
+
+const Letter = ({ meta, scatter }: LetterProps) => {
+  const { ch, dx, dy, rot, delay, originX, originY } = meta;
+
+  const x = useTransform(scatter, [0, 0.15, 1], [0, dx * 0.08, dx]);
+  const y = useTransform(scatter, [0, 0.15, 1], [0, dy * 0.08, dy]);
+  const r = useTransform(scatter, [0, 0.2, 1], [0, rot * 0.25, rot]);
+  const scale = useTransform(scatter, [0, 0.4, 1], [1, 0.92, 0.15]);
+  const letterOpacity = useTransform(scatter, [0, 0.55, 1], [1, 0.85, 0]);
+  const blurPx = useTransform(scatter, [0, 0.5, 1], [0, 4, 18]);
+  const letterFilter = useTransform(blurPx, (b) => `blur(${b}px)`);
+
   return (
     <motion.span
-      className="inline-block"
-      initial={{ opacity: 0, y: 40, filter: "blur(20px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ ...SPRING, delay: 0.3 + idx * 0.04 }}
-      style={{ x, y, rotate: r }}
+      className="inline-block will-change-transform"
+      style={{
+        x,
+        y,
+        rotate: r,
+        scale,
+        opacity: letterOpacity,
+        filter: letterFilter,
+      }}
     >
-      {ch}
+      <motion.span
+        className="inline-block"
+        initial={{
+          opacity: 0,
+          x: originX,
+          y: originY + 36,
+          scale: 0.35,
+          rotate: rot * 0.4,
+          filter: "blur(22px)",
+        }}
+        animate={{
+          opacity: 1,
+          x: 0,
+          y: 0,
+          scale: 1,
+          rotate: 0,
+          filter: "blur(0px)",
+        }}
+        transition={{ ...SPRING, delay }}
+      >
+        {ch}
+      </motion.span>
     </motion.span>
   );
 };
 
 export const ParticleHeadline = ({ text }: Props) => {
-  const ref = useRef<HTMLHeadingElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
-  const blur = useTransform(scrollYProgress, [0, 1], [0, 24]);
-  const scatter = useTransform(scrollYProgress, [0, 1], [0, 1]);
-  const filter = useTransform(blur, (b) => `blur(${b}px)`);
+  const opacity = useTransform(scrollYProgress, [0, 0.65], [1, 0]);
+  const containerBlur = useTransform(scrollYProgress, [0, 0.8, 1], [0, 8, 20]);
+  const scatter = useTransform(scrollYProgress, [0, 0.08, 1], [0, 0, 1]);
+  const containerFilter = useTransform(containerBlur, (b) => (b > 0 ? `blur(${b}px)` : "none"));
 
-  // Stable random offsets per letter (computed once)
   const letters = useMemo(() => {
-    const out: { ch: string; word: number; dx: number; dy: number; rot: number }[] = [];
+    const out: LetterMeta[] = [];
+    let globalIdx = 0;
+
     text.split(" ").forEach((word, wi) => {
-      word.split("").forEach((ch) => {
+      word.split("").forEach((ch, ci) => {
+        const s1 = seeded(globalIdx);
+        const s2 = seeded(globalIdx + 100);
+        const s3 = seeded(globalIdx + 200);
+        const angle = s1 * Math.PI * 2;
+        const radius = 80 + s2 * 120;
+
         out.push({
           ch,
           word: wi,
-          dx: (Math.random() - 0.5) * 400,
-          dy: (Math.random() - 0.5) * 200,
-          rot: (Math.random() - 0.5) * 90,
+          dx: Math.cos(angle) * (180 + s1 * 280),
+          dy: Math.sin(angle) * (100 + s2 * 160) - 40,
+          rot: (s3 - 0.5) * 120,
+          delay: 0.2 + wi * 0.22 + ci * 0.038,
+          originX: Math.cos(angle) * radius * 0.35,
+          originY: Math.sin(angle) * radius * 0.35,
         });
+        globalIdx += 1;
       });
-      out.push({ ch: " ", word: wi, dx: 0, dy: 0, rot: 0 });
+      out.push({
+        ch: " ",
+        word: wi,
+        dx: 0,
+        dy: 0,
+        rot: 0,
+        delay: 0,
+        originX: 0,
+        originY: 0,
+      });
     });
+
     return out;
   }, [text]);
 
   return (
-    <motion.h1
+    <motion.div
       ref={ref}
-      style={{ opacity, filter }}
-      className="display text-foreground text-center text-[clamp(2.5rem,9vw,7.5rem)] leading-[0.9] will-change-transform"
+      style={{ opacity, filter: containerFilter }}
+      className="px-2"
     >
-      {letters.map((l, idx) =>
-        l.ch === " " ? (
-          <span key={idx} className="inline-block w-[0.3em]" />
-        ) : (
-          <Letter
-            key={idx}
-            idx={idx}
-            ch={l.ch}
-            scatter={scatter}
-            dx={l.dx}
-            dy={l.dy}
-            rot={l.rot}
-          />
-        )
-      )}
-    </motion.h1>
+      <h1 className="display text-foreground text-center text-[clamp(1.5rem,5.5vw,4.25rem)] leading-[0.9] will-change-transform">
+        {letters.map((l, idx) =>
+          l.ch === " " ? (
+            <span key={idx} className="inline-block w-[0.35em]" />
+          ) : (
+            <Letter key={idx} meta={l} scatter={scatter} />
+          )
+        )}
+      </h1>
+    </motion.div>
   );
 };

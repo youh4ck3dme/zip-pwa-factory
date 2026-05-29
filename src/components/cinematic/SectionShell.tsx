@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { type ReactNode, useRef, lazy, Suspense } from "react";
+import { type ReactNode, useRef, useCallback, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import type { SceneKind } from "./sections";
 
@@ -19,6 +19,7 @@ const QuantumGridScene = lazy(() =>
 interface Props {
   id: string;
   index: number;
+  navIndex: number;
   title: string;
   description: string;
   video?: string;
@@ -40,7 +41,7 @@ const SceneFor = ({ kind }: { kind: SceneKind }) => {
 };
 
 export const SectionShell = ({
-  id, index, title, description, video, scene, children, registerRef, className,
+  id, index, navIndex, title, description, video, scene, children, registerRef, className,
 }: Props) => {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
@@ -48,11 +49,19 @@ export const SectionShell = ({
   const scale = useTransform(scrollYProgress, [0, 0.5, 1], [1.1, 1, 1.1]);
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.85, 0.6, 0.85]);
 
+  const sectionRef = useCallback(
+    (el: HTMLElement | null) => {
+      (ref as { current: HTMLElement | null }).current = el;
+      registerRef?.(navIndex, el);
+    },
+    [navIndex, registerRef]
+  );
+
   return (
     <section
       id={id}
-      ref={(el) => { (ref as any).current = el; registerRef?.(index - 1, el); }}
-      data-index={index - 1}
+      ref={sectionRef}
+      data-index={navIndex}
       className={cn("snap-section relative w-full overflow-hidden bg-obsidian", className)}
     >
       {scene && (

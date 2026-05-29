@@ -55,9 +55,9 @@ export function Particles({
     const m = new DofPointsMaterial();
     m.uniforms.positions.value = target.texture;
     m.uniforms.initialPositions.value = simulationMaterial.uniforms.positions.value;
-    m.uniforms.uColor.value = new THREE.Color(color);
+    m.uniforms.uColor.value = new THREE.Color("#ffd49a");
     return m;
-  }, [simulationMaterial, target, color]);
+  }, [simulationMaterial, target]);
 
   const [scene] = useState(() => new THREE.Scene());
   const [camera] = useState(
@@ -80,6 +80,8 @@ export function Particles({
   }, [size]);
 
   useFrame((state, delta) => {
+    dofPointsMaterial.uniforms.uColor.value.set(color);
+
     state.gl.setRenderTarget(target);
     state.gl.clear();
     state.gl.render(scene, camera);

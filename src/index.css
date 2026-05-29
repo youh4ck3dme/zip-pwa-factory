@@ -152,11 +152,25 @@
     50% { transform: scale(1.08); opacity: 1; }
   }
   .animate-orb { animation: orb-pulse 3s ease-in-out infinite; }
+
+  @keyframes genesis-pulse {
+    0%, 100% { box-shadow: 0 0 30px hsl(var(--genesis-accent) / 0.4), 0 0 80px hsl(var(--genesis-accent) / 0.25); }
+    50% { box-shadow: 0 0 50px hsl(var(--genesis-accent) / 0.7), 0 0 140px hsl(var(--genesis-accent) / 0.45); }
+  }
+
+  .genesis-ambient .genesis-accent-bg { background-color: hsl(var(--genesis-accent)); }
+  .genesis-ambient .genesis-accent-text { color: hsl(var(--genesis-accent) / 0.8); }
+  .genesis-ambient .genesis-accent-glow { box-shadow: 0 0 40px hsl(var(--genesis-accent) / 0.5); }
+  .genesis-ambient .genesis-pulse { animation: genesis-pulse 2.4s ease-in-out infinite; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  .genesis-ambient .genesis-pulse {
+    animation: none !important;
+    box-shadow: 0 0 30px hsl(var(--genesis-accent) / 0.4), 0 0 80px hsl(var(--genesis-accent) / 0.25) !important;
   }
 }

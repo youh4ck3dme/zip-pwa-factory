@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { z } from "zod";
-import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { z } from "zod";
 
 const schema = z.object({
   email: z.string().trim().email("Invalid email").max(255),
@@ -18,6 +17,7 @@ export default function Auth() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -49,20 +49,32 @@ export default function Auth() {
         if (error) throw error;
         navigate("/", { replace: true });
       }
-    } catch (err: any) {
-      toast.error(err.message || "Authentication failed");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message: unknown }).message)
+            : "Authentication failed";
+      toast.error(message);
     } finally {
       setBusy(false);
     }
   };
 
-  const google = async () => {
+  const passkeySignIn = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error("Google sign-in failed");
+    try {
+      const { data, error } = await supabase.auth.signInWithPasskey();
+      if (error) throw error;
+      if (data) {
+        toast.success("Signed in with Biometrics!");
+        navigate("/", { replace: true });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : typeof err === "object" && err !== null && "message" in err ? String((err as { message: unknown }).message) : "Biometric sign-in failed. Please ensure you have registered a passkey first.";
+      toast.error(msg);
+    } finally {
       setBusy(false);
     }
   };
@@ -75,15 +87,28 @@ export default function Auth() {
             ← Home
           </Link>
           <h1 className="text-2xl font-bold">{mode === "signup" ? "Create account" : "Sign in"}</h1>
-          <p className="text-sm text-muted-foreground">to Prompt Pipeline Builder</p>
+          <p className="text-sm text-muted-foreground">to Silk Road Pipeline</p>
         </div>
 
         <button
-          onClick={google}
+          type="button"
+          onClick={passkeySignIn}
           disabled={busy}
-          className="w-full bg-card border border-border hover:bg-muted text-foreground py-2.5 rounded-md font-medium disabled:opacity-60"
+          className="w-full bg-card border border-border hover:bg-muted text-foreground py-2.5 rounded-md font-medium disabled:opacity-60 flex items-center justify-center gap-2"
         >
-          Continue with Google
+          <span>Fingerprint / Face ID</span>
+        </button>
+
+        {/* Development bypass button */}
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.setItem("dev_bypass", "true");
+            window.location.href = "/"; // Force reload to trigger getSession bypass
+          }}
+          className="w-full bg-secondary/50 border border-border hover:bg-secondary text-secondary-foreground py-2.5 rounded-md font-medium flex items-center justify-center gap-2"
+        >
+          <span>dev. ----&gt;</span>
         </button>
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -100,15 +125,37 @@ export default function Auth() {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full bg-card border border-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             required
+            autoComplete="email"
           />
-          <input
-            type="password"
-            placeholder="Password (min 8 chars)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-card border border-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            required
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password (min 8 chars)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-card border border-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary pr-10"
+              required
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+            >
+              <span className="text-xs font-semibold">{showPassword ? "HIDE" : "SHOW"}</span>
+            </button>
+          </div>
+          {mode === "signin" && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => toast.info("Forgot password flow is not implemented locally yet.")}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
           <button
             type="submit"
             disabled={busy}

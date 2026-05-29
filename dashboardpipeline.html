@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Pipeline UI</title>
+    <style>
+        :root {
+            --bg-color: #09090b;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border-color: #27272a;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            margin: 0;
+            padding: 24px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .pipeline-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .icon-container {
+            margin-right: 16px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+        }
+
+        .content {
+            flex-grow: 1;
+            max-width: 800px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .header.active {
+            color: var(--text-primary);
+        }
+
+        .title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chevron {
+            width: 14px;
+            height: 14px;
+            color: var(--text-muted);
+        }
+
+        .meta-info {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .terminal-box {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            margin-left: 2px;
+        }
+
+        .terminal-header {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .terminal-content {
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .terminal-content .cursor {
+            display: inline-block;
+            width: 7px;
+            height: 14px;
+            background-color: #3f3f46;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* SVG Icons */
+        svg {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .spinner {
+            animation: spin 2s linear infinite;
+            color: var(--text-muted);
+        }
+        
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Rozbalená sekcia s terminálom -->
+    <div class="pipeline-item">
+        <div class="icon-container">&lt;/&gt;</div>
+        <div class="content">
+            <div class="header active">
+                <div class="title-group">
+                    <span>Spúšťam inštaláciu závislostí na pozadí na Macu</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="terminal-box">
+                <div class="terminal-header">Terminal (local)</div>
+                <div class="terminal-content">rm -f npm-install.log npm-install.done npm-install.exit
+( npm install --no-audit --no-fund --progress=false > npm-install.log 2>&1; echo $? > npm-install.exit; date > npm-install.done ) & echo $!<span class="cursor"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Thinking animácia -->
+    <div class="pipeline-item">
+        <div class="icon-container">
+            <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+            </svg>
+        </div>
+        <div class="content">
+            <div class="header">
+                <div class="title-group">
+                    <span>Thinking</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Zbalená sekcia s časovým údajom -->
+    <div class="pipeline-item">
+        <div class="icon-container">&lt;/&gt;</div>
+        <div class="content">
+            <div class="header">
+                <div class="title-group">
+                    <span>Spúšťam inštaláciu závislostí oddelenú od terminálu</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </div>
+                <div class="meta-info">23:33 · 5s</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

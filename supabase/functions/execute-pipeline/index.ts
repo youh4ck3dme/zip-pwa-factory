@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { completePrompt } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,29 +12,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-async function callAI(prompt: string) {
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    console.error(`AI ${r.status}:`, t.slice(0, 500));
-    throw new Error("AI request failed");
-  }
-  const j = await r.json();
-  return j.choices?.[0]?.message?.content ?? "";
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -60,7 +39,6 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid pipeline_id" }, 400);
     if (initial_input.length > 5000) return json({ error: "initial_input too long (max 5000 chars)" }, 400);
 
-    // Use service role only for pipeline lookup + execution writes (after authz check)
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -73,7 +51,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (pErr || !pipeline) return json({ error: "Pipeline not found" }, 404);
 
-    // Authorize: owner OR admin role
+    const steps = pipeline.steps as Array<{ id: string; name: string; prompt: string }>;
+    if (!Array.isArray(steps) || steps.length === 0) {
+      return json({ error: "Pipeline has no steps" }, 400);
+    }
+
     const { data: roleRow } = await admin
       .from("user_roles")
       .select("role")
@@ -99,54 +81,74 @@ Deno.serve(async (req) => {
       return json({ error: "Failed to start execution" }, 500);
     }
 
-    // Async execution
     (async () => {
-      const logs: any[] = [];
+      const logs: Array<{
+        step_id: string;
+        step_name: string;
+        status: string;
+        prompt_used: string;
+        output: string | null;
+        error: string | null;
+        started_at: string;
+        completed_at: string | null;
+      }> = [];
       let prev = "";
       let failed = false;
-      for (const step of pipeline.steps as any[]) {
-        const promptUsed = (step.prompt || "")
-          .replaceAll("{{input}}", initial_input)
-          .replaceAll("{{previous_output}}", prev);
+      try {
+        for (const step of steps) {
+          const promptUsed = (step.prompt || "")
+            .replaceAll("{{input}}", initial_input)
+            .replaceAll("{{previous_output}}", prev);
 
-        logs.push({
-          step_id: step.id,
-          step_name: step.name,
-          status: "running",
-          prompt_used: promptUsed,
-          output: null,
-          error: null,
-          started_at: new Date().toISOString(),
-          completed_at: null,
-        });
-        await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
+          logs.push({
+            step_id: step.id,
+            step_name: step.name,
+            status: "running",
+            prompt_used: promptUsed,
+            output: null,
+            error: null,
+            started_at: new Date().toISOString(),
+            completed_at: null,
+          });
+          await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
 
-        try {
-          const out = await callAI(promptUsed);
-          prev = out;
-          const last = logs[logs.length - 1];
-          last.status = "completed";
-          last.output = out;
-          last.completed_at = new Date().toISOString();
-        } catch (err) {
-          console.error("Step failed:", err);
-          const last = logs[logs.length - 1];
-          last.status = "failed";
-          last.error = "Step execution failed";
-          last.completed_at = new Date().toISOString();
-          failed = true;
+          try {
+            const out = await completePrompt(promptUsed, step.name);
+            prev = out;
+            const last = logs[logs.length - 1];
+            last.status = "completed";
+            last.output = out;
+            last.completed_at = new Date().toISOString();
+          } catch (err) {
+            console.error("Step failed:", err);
+            const last = logs[logs.length - 1];
+            last.status = "failed";
+            last.error = "Step execution failed";
+            last.completed_at = new Date().toISOString();
+            failed = true;
+            await admin
+              .from("executions")
+              .update({ logs, status: "failed", updated_at: new Date().toISOString() })
+              .eq("id", exec.id);
+            break;
+          }
+          await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
+        }
+        if (!failed) {
           await admin
             .from("executions")
-            .update({ logs, status: "failed", updated_at: new Date().toISOString() })
+            .update({ logs, status: "completed", updated_at: new Date().toISOString() })
             .eq("id", exec.id);
-          break;
         }
-        await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
-      }
-      if (!failed) {
+      } catch (err) {
+        console.error("Execution loop failed:", err);
         await admin
           .from("executions")
-          .update({ logs, status: "completed", updated_at: new Date().toISOString() })
+          .update({
+            logs,
+            status: "failed",
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", exec.id);
       }
     })();

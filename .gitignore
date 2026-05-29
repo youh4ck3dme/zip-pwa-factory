@@ -25,3 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel
+supabase/.env.local
+supabase/.temp/
+scratch/
+
+scratch/

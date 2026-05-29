@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LogOut, Shield, ChevronDown } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { LogOut, Shield, ChevronDown, LayoutDashboard } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useGenesisAccentCycle } from "@/hooks/useGenesisAccentCycle";
+import { getFunctionInvokeError, isValidPipelineId } from "@/lib/supabase-functions";
 import { toast } from "sonner";
 import { ACTIVE_SECTIONS } from "@/components/cinematic/sections";
 import { ParticleHeadline } from "@/components/cinematic/ParticleHeadline";
@@ -21,15 +23,33 @@ const Index = () => {
   const [active, setActive] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Array<HTMLElement | null>>([]);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const observedSectionsRef = useRef<Set<HTMLElement>>(new Set());
   const visibleSections = ACTIVE_SECTIONS;
+  const { accentHsl, accentHex } = useGenesisAccentCycle();
 
-  const registerRef = (i: number, el: HTMLElement | null) => {
+  const registerRef = useCallback((i: number, el: HTMLElement | null) => {
+    const prev = sectionRefs.current[i];
+    if (prev === el) return;
+
     sectionRefs.current[i] = el;
-  };
+    const observer = observerRef.current;
+    if (!observer) return;
+
+    if (prev) {
+      observer.unobserve(prev);
+      observedSectionsRef.current.delete(prev);
+    }
+    if (el && !observedSectionsRef.current.has(el)) {
+      observer.observe(el);
+      observedSectionsRef.current.add(el);
+    }
+  }, []);
 
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
@@ -41,9 +61,26 @@ const Index = () => {
       },
       { root, threshold: [0.5, 0.75] }
     );
-    sectionRefs.current.forEach((el) => el && observer.observe(el));
-    return () => observer.disconnect();
+
+    observerRef.current = observer;
+    sectionRefs.current.forEach((el) => {
+      if (el && !observedSectionsRef.current.has(el)) {
+        observer.observe(el);
+        observedSectionsRef.current.add(el);
+      }
+    });
+
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+      observedSectionsRef.current = new Set();
+    };
   }, []);
+
+  const genesisRef = useCallback(
+    (el: HTMLElement | null) => registerRef(0, el),
+    [registerRef]
+  );
 
   const jump = (i: number) => {
     sectionRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -58,7 +95,12 @@ const Index = () => {
   };
 
   const handleGenerate = async (query: string) => {
-    if (query.length > 2000) {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      toast.error("Enter a prompt first");
+      return;
+    }
+    if (trimmed.length > 2000) {
       toast.error("Query too long (max 2000 chars)");
       return;
     }
@@ -66,22 +108,29 @@ const Index = () => {
     const startedAt = Date.now();
     try {
       const { data, error } = await supabase.functions.invoke("generate-pipeline", {
-        body: { query },
+        body: { query: trimmed },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        toast.error(await getFunctionInvokeError(data, error));
+        setLoading(false);
+        return;
+      }
+      if (data?.error) {
+        toast.error(String(data.error));
+        setLoading(false);
+        return;
+      }
+      if (!isValidPipelineId(data?.id)) {
+        toast.error("Invalid pipeline response");
+        setLoading(false);
+        return;
+      }
       const elapsed = Date.now() - startedAt;
       const wait = Math.max(0, 1500 - elapsed);
-      setTimeout(() => navigate(`/pipeline/${data.id}`), wait);
+      window.setTimeout(() => navigate(`/pipeline/${data.id}`), wait);
     } catch (err: unknown) {
       setLoading(false);
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object" && err !== null && "message" in err
-            ? String((err as { message: unknown }).message)
-            : "Failed to generate pipeline";
-      toast.error(message || "Failed to generate pipeline");
+      toast.error(await getFunctionInvokeError(null, err));
     }
   };
 
@@ -95,6 +144,13 @@ const Index = () => {
           </span>
         )}
         <span className="text-[11px] text-muted-foreground hidden md:inline mono max-w-[180px] truncate">{user?.email}</span>
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass text-muted-foreground hover:text-foreground hover:bg-card transition-colors text-xs font-semibold"
+        >
+          <LayoutDashboard className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">My Pipelines</span>
+        </Link>
         <button
           onClick={signOut}
           className="p-2 rounded-full glass text-muted-foreground hover:text-amber transition-colors"
@@ -113,26 +169,27 @@ const Index = () => {
         {/* SECTION 01 — Genesis */}
         <section
           id="genesis"
-          ref={(el) => registerRef(0, el)}
+          ref={genesisRef}
           data-index={0}
-          className="snap-section relative w-full overflow-hidden bg-obsidian"
+          className="snap-section genesis-ambient relative w-full overflow-hidden bg-obsidian"
+          style={{ "--genesis-accent": accentHsl } as CSSProperties}
         >
           {/* MAIN HERO — GPGPU particle field */}
-          <GL />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--amber)/0.12)_0%,transparent_70%)] pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-obsidian pointer-events-none" />
+          <GL color={accentHex} />
+          <div
+            className="absolute inset-0 pointer-events-none transition-colors duration-1000"
+            style={{
+              background: `
+                radial-gradient(ellipse at 50% 40%, hsl(var(--genesis-accent) / 0.45) 0%, transparent 60%),
+                radial-gradient(circle at 100% 0%, hsl(var(--genesis-accent) / 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, hsl(var(--genesis-accent) / 0.15) 0%, transparent 40%)
+              `
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-obsidian/40 to-obsidian pointer-events-none" />
 
           <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 sm:px-6 gap-6 sm:gap-10 md:gap-12">
-            <motion.span
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.8 }}
-              className="mono text-amber/80 text-[10px] sm:text-xs tracking-[0.4em] sm:tracking-[0.5em]"
-            >
-              01 — GENESIS
-            </motion.span>
-
-            <ParticleHeadline text="PROMPT PIPELINE BUILDER" />
+            <ParticleHeadline text="SILK ROAD PIPELINE" />
 
             <motion.p
               initial={{ opacity: 0 }}
@@ -156,10 +213,11 @@ const Index = () => {
         </section>
 
         {/* SECTION 02 — keep only first two 100vh sections */}
-        {visibleSections.slice(1).map((s) => (
+        {visibleSections.slice(1).map((s, navIdx) => (
           <SectionShell
             key={s.id}
             id={s.id}
+            navIndex={navIdx + 1}
             index={s.index}
             title={s.title}
             description={s.description}
