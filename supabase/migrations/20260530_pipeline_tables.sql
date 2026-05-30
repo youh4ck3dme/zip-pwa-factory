@@ -1,37 +1,29 @@
 -- Enable uuid-ossp extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Pipelines table
-CREATE TABLE IF NOT EXISTS pipelines (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users NOT NULL,
-  spec JSONB NOT NULL,
-  pwa_config JSONB,  -- PWA-specific configurations
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Add missing columns to pipelines
+ALTER TABLE public.pipelines
+  ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users,
+  ADD COLUMN IF NOT EXISTS spec JSONB,
+  ADD COLUMN IF NOT EXISTS pwa_config JSONB;
 
--- Executions table
-CREATE TABLE IF NOT EXISTS executions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  pipeline_id UUID REFERENCES pipelines ON DELETE CASCADE NOT NULL,
-  status TEXT CHECK (status IN ('queued', 'running', 'failed', 'completed')),
-  logs JSONB,
-  artifacts JSONB,
-  pwa_assets JSONB,  -- Generated PWA assets (manifest, service worker, etc.)
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Add missing columns to executions
+ALTER TABLE public.executions
+  ADD COLUMN IF NOT EXISTS pwa_assets JSONB;
 
 -- RLS Policies
-CREATE POLICY "RLS pipelines" ON pipelines FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "RLS executions" ON executions FOR ALL USING (
-  EXISTS (SELECT 1 FROM pipelines WHERE pipelines.id = executions.pipeline_id AND pipelines.user_id = auth.uid())
+DROP POLICY IF EXISTS "RLS pipelines" ON public.pipelines;
+CREATE POLICY "RLS pipelines" ON public.pipelines FOR ALL USING (auth.uid() = owner_id);
+
+DROP POLICY IF EXISTS "RLS executions" ON public.executions;
+CREATE POLICY "RLS executions" ON public.executions FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.pipelines WHERE public.pipelines.id = public.executions.pipeline_id AND public.pipelines.owner_id = auth.uid())
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_pipelines_user_id ON pipelines(user_id);
-CREATE INDEX IF NOT EXISTS idx_executions_pipeline_id ON executions(pipeline_id);
-CREATE INDEX IF NOT EXISTS idx_executions_status ON executions(status);
+CREATE INDEX IF NOT EXISTS idx_pipelines_owner_id ON public.pipelines(owner_id);
+CREATE INDEX IF NOT EXISTS idx_executions_pipeline_id ON public.executions(pipeline_id);
+CREATE INDEX IF NOT EXISTS idx_executions_status ON public.executions(status);
 
 -- Update updated_at timestamp on pipelines
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -42,5 +34,6 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_pipelines_updated_at BEFORE UPDATE ON pipelines
+DROP TRIGGER IF EXISTS update_pipelines_updated_at ON public.pipelines;
+CREATE TRIGGER update_pipelines_updated_at BEFORE UPDATE ON public.pipelines
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

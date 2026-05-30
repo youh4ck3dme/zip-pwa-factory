@@ -107,6 +107,44 @@ const Index = () => {
     setLoading(true);
     const startedAt = Date.now();
     try {
+      if (user?.id === "dev-bypass-user") {
+        const { db } = await import("@/lib/db");
+        const fakeId = crypto.randomUUID();
+        await db.pipelines.put({
+          id: fakeId,
+          title: "Analyze and Clarify Project Request (Dev)",
+          query: trimmed,
+          steps: [
+            {
+              id: "step-1",
+              name: "Context Analysis",
+              prompt: "Inspect the repository 'zip-pwa-factory' at /workspace/youh4ck3dme__zip-pwa-factory. Read the README.md, package.json, and any other root-level documentation to understand the project's purpose, structure, and goals. Identify key files, dependencies, and entry points."
+            },
+            {
+              id: "step-2",
+              name: "User Intent Clarification",
+              prompt: "Determine the user's intent based on their request 'naci taj projekt'. Analyze possible interpretations (e.g., 'start a new project', 'explain the project', 'fix the project', or 'translate project'). Cross-reference with the repository context to infer the most likely intent."
+            },
+            {
+              id: "step-3",
+              name: "Design Action Plan",
+              prompt: "Based on the repository context and clarified intent, design a specific action plan. For example: if the intent is to 'explain the project', outline how to generate a clear explanation; if the intent is to 'fix the project', identify potential issues and propose fixes. Output a structured plan with clear objectives."
+            },
+            {
+              id: "step-4",
+              name: "Execute or Respond",
+              prompt: "Execute the action plan or respond to the user with a clear, concise output. If the intent is unclear, ask a single clarifying question (e.g., 'Do you want to start a new project, explain this project, or fix an issue?')."
+            }
+          ],
+          owner_id: "dev-bypass-user",
+          updated_at: new Date().toISOString(),
+        });
+        const elapsed = Date.now() - startedAt;
+        const wait = Math.max(0, 1500 - elapsed);
+        window.setTimeout(() => navigate(`/pipeline/${fakeId}`), wait);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-pipeline", {
         body: { query: trimmed },
       });

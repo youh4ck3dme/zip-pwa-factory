@@ -25,7 +25,7 @@ async function fetchExecutionById(id: string): Promise<Execution | null> {
 
 export default function Builder() {
   const { id } = useParams<{ id: string }>();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   
   const pipeline = useBuilderStore((s) => s.pipeline);
   const loading = useBuilderStore((s) => s.loading);
@@ -88,9 +88,29 @@ export default function Builder() {
   }, [dirty]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || authLoading) return;
     (async () => {
       setLoading(true);
+      
+      if (user?.id === "dev-bypass-user") {
+        const { db } = await import("@/lib/db");
+        const localPipe = await db.pipelines.get(id);
+        if (!localPipe) {
+          toast.error("Local pipeline not found");
+        } else {
+          setPipeline({
+            id: localPipe.id,
+            title: localPipe.title,
+            query: localPipe.query,
+            owner_id: localPipe.owner_id,
+            steps: localPipe.steps,
+          });
+          setPastExecutions([]);
+        }
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.from("pipelines").select("*").eq("id", id).single();
       if (error) {
         toast.error("Pipeline not found");
@@ -126,7 +146,7 @@ export default function Builder() {
       }
       setLoading(false);
     })();
-  }, [id, applyExecution, historyLimit, setLoading, setPipeline, setPastExecutions, setRunning, setInitialInput]);
+  }, [id, applyExecution, historyLimit, setLoading, setPipeline, setPastExecutions, setRunning, setInitialInput, user?.id, authLoading]);
 
   useEffect(() => {
     if (!execution?.id) return;
@@ -169,6 +189,20 @@ export default function Builder() {
   const save = async () => {
     if (!pipeline) return;
     setSaving(true);
+    
+    if (user?.id === "dev-bypass-user") {
+      const { db } = await import("@/lib/db");
+      await db.pipelines.update(pipeline.id, {
+        title: pipeline.title,
+        steps: pipeline.steps as unknown as Step[],
+        updated_at: new Date().toISOString(),
+      });
+      setSaving(false);
+      toast.success("Saved locally");
+      setDirty(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("pipelines")
       .update({
@@ -194,6 +228,15 @@ export default function Builder() {
     setRunning(true);
     setExecution(null);
     setTab("logs");
+    
+    if (user?.id === "dev-bypass-user") {
+      toast.info("Execution is simulated in dev mode.");
+      setTimeout(() => {
+        setRunning(false);
+      }, 1500);
+      return;
+    }
+
     try {
       lastRealtimeUpdate.current = Date.now();
       const { data, error } = await supabase.functions.invoke("execute-pipeline", {

@@ -16,7 +16,7 @@ export function AvatarGroup({ documentId }: { documentId: string }) {
   const [activeUsers, setActiveUsers] = useState<PresenceState[]>([]);
 
   useEffect(() => {
-    if (!user || !documentId) return;
+    if (!user || !documentId || user.id === "dev-bypass-user") return;
 
     const channel = supabase.channel(`presence:pipeline-${documentId}`);
 

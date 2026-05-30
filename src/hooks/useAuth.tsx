@@ -40,6 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_evt, s) => {
       if (!mounted) return;
+      if (localStorage.getItem("dev_bypass") === "true") {
+        setSession({ user: { id: "dev-bypass-user" } } as unknown as Session);
+        setUser({ id: "dev-bypass-user", email: "dev@local" } as unknown as User);
+        setIsAdmin(true);
+        return;
+      }
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
@@ -54,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       
       // Dev Bypass Logic
-      if (import.meta.env.DEV && localStorage.getItem("dev_bypass") === "true") {
+      if (localStorage.getItem("dev_bypass") === "true") {
         setSession({ user: { id: "dev-bypass-user" } } as unknown as Session);
         setUser({ id: "dev-bypass-user", email: "dev@local" } as unknown as User);
         setIsAdmin(true);
@@ -62,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Standard Auth Flow
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {

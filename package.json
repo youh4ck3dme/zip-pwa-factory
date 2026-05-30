@@ -8,6 +8,7 @@
     "build": "node scripts/logo.js && vite build",
     "build:dev": "node scripts/logo.js && vite build --mode development",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

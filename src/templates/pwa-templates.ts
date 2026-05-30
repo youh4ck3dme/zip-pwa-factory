@@ -69,12 +69,12 @@ The Service Worker should:
         id: "d002",
         title: "Validate Service Worker",
         type: "validate",
-        prompt: "Review the following Service Worker code for:
+        prompt: `Review the following Service Worker code for:
 1. Syntax errors
 2. Missing event listeners
 3. Proper caching logic
 4. Offline support
-Return a list of issues or 'valid' if correct.",
+Return a list of issues or 'valid' if correct.`,
         expectedOutput: "json",
         inputKeys: ["serviceWorkerCode"],
         outputKey: "swValidationResult",
