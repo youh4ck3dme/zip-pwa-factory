@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm ci",
+  "installCommand": "corepack enable && pnpm i",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]

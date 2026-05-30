@@ -37,8 +37,6 @@ const Letter = ({ meta, scatter }: LetterProps) => {
   const r = useTransform(scatter, [0, 0.2, 1], [0, rot * 0.25, rot]);
   const scale = useTransform(scatter, [0, 0.4, 1], [1, 0.92, 0.15]);
   const letterOpacity = useTransform(scatter, [0, 0.55, 1], [1, 0.85, 0]);
-  const blurPx = useTransform(scatter, [0, 0.5, 1], [0, 4, 18]);
-  const letterFilter = useTransform(blurPx, (b) => `blur(${b}px)`);
 
   return (
     <motion.span
@@ -49,7 +47,6 @@ const Letter = ({ meta, scatter }: LetterProps) => {
         rotate: r,
         scale,
         opacity: letterOpacity,
-        filter: letterFilter,
       }}
     >
       <motion.span
@@ -60,7 +57,6 @@ const Letter = ({ meta, scatter }: LetterProps) => {
           y: originY + 36,
           scale: 0.35,
           rotate: rot * 0.4,
-          filter: "blur(22px)",
         }}
         animate={{
           opacity: 1,
@@ -68,7 +64,6 @@ const Letter = ({ meta, scatter }: LetterProps) => {
           y: 0,
           scale: 1,
           rotate: 0,
-          filter: "blur(0px)",
         }}
         transition={{ ...SPRING, delay }}
       >

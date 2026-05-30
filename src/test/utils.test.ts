@@ -7,7 +7,9 @@ describe("utils/cn", () => {
   });
 
   it("handles conditional classes", () => {
-    expect(cn("bg-red-500", true && "text-white", false && "font-bold")).toBe("bg-red-500 text-white");
+    const isTrue = true;
+    const isFalse = false;
+    expect(cn("bg-red-500", isTrue && "text-white", isFalse && "font-bold")).toBe("bg-red-500 text-white");
   });
 
   it("handles arrays of classes", () => {

@@ -7,7 +7,7 @@ export function useSupabaseSync() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.id === "dev-bypass-user") return;
 
     // Listen to changes on the pipelines table
     const channel = supabase

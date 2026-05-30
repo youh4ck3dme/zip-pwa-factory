@@ -31,16 +31,25 @@ export const GenesisLoader = ({ active }: Props) => {
     if (!ctx) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let resizeTimer: number;
     const resize = () => {
-      c.width = window.innerWidth * dpr;
-      c.height = window.innerHeight * dpr;
-      c.style.width = `${window.innerWidth}px`;
-      c.style.height = `${window.innerHeight}px`;
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        c.width = window.innerWidth * dpr;
+        c.height = window.innerHeight * dpr;
+        c.style.width = `${window.innerWidth}px`;
+        c.style.height = `${window.innerHeight}px`;
+      }, 100);
     };
-    resize();
-    window.addEventListener("resize", resize);
+    // initial resize immediately
+    c.width = window.innerWidth * dpr;
+    c.height = window.innerHeight * dpr;
+    c.style.width = `${window.innerWidth}px`;
+    c.style.height = `${window.innerHeight}px`;
+    
+    window.addEventListener("resize", resize, { passive: true });
 
-    const COUNT = 600;
+    const COUNT = 250;
     const cx = () => c.width / 2;
     const cy = () => c.height / 2;
 

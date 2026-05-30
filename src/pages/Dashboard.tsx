@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { db } from "@/lib/db";
 
 type PipelineSummary = {
   id: string;
@@ -24,6 +25,15 @@ export default function Dashboard() {
 
   const fetchPipelines = async () => {
     setLoading(true);
+
+    if (user?.id === "dev-bypass-user") {
+      // Offline/Local dev mode
+      const all = await db.pipelines.orderBy("updated_at").reverse().toArray();
+      setPipelines(all);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("pipelines")
       .select("id, title, updated_at")
@@ -42,6 +52,13 @@ export default function Dashboard() {
     e.stopPropagation();
     if (!confirm("Are you sure you want to delete this pipeline?")) return;
     
+    if (user?.id === "dev-bypass-user") {
+      await db.pipelines.delete(id);
+      toast.success("Pipeline deleted locally");
+      setPipelines((prev) => prev.filter((p) => p.id !== id));
+      return;
+    }
+
     const { error } = await supabase.from("pipelines").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete: " + error.message);
