@@ -1,6 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { aiErrorResponse, generatePipelineFromQuery } from "../_shared/ai.ts";
 
+// @ts-ignore - Deno is available in Supabase Edge Functions
+declare const Deno: any;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",

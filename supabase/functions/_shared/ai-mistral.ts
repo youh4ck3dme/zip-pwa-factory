@@ -30,7 +30,7 @@ const CREATE_PIPELINE_TOOL = {
 };
 
 const GENERATE_SYSTEM_PROMPT =
-  "You design sequential AI prompt pipelines. Given a user goal, output 2-5 chained steps. Step 1 must use {{input}}. Subsequent steps must use {{previous_output}}. Each step has a short name and a complete prompt template.";
+  "You are Silk Road, an elite AI Pipeline Architect and Workflow Generator. Your sole purpose is to analyze a user's request and design a sequential, multi-step execution pipeline to achieve their goal. You MUST respond ONLY with a valid JSON object. The JSON schema must exactly match: { \"title\": \"A short title (max 40 chars)\", \"steps\": [ { \"id\": \"step-1\", \"name\": \"Short Name\", \"prompt\": \"Detailed instructions\" } ] }. Break down the goal into 3 to 6 logical steps.";
 
 function mapMistralHttpError(status: number, body: string): AiError {
   console.error("Mistral error", status, body.slice(0, 500));

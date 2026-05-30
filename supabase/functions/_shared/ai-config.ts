@@ -1,6 +1,9 @@
 import type { AiProvider } from "./types.ts";
 import { AiError } from "./types.ts";
 
+// @ts-ignore - Deno is available in Supabase Edge Functions
+declare const Deno: any;
+
 export function resolveAiProvider(): AiProvider {
   const raw = (Deno.env.get("AI_PROVIDER") ?? "mistral").toLowerCase();
   if (raw === "mock") return "mock";
@@ -17,5 +20,5 @@ export function getMistralApiKey(): string {
 }
 
 export function getMistralModel(): string {
-  return Deno.env.get("MISTRAL_MODEL") ?? "mistral-small-latest";
+  return Deno.env.get("MISTRAL_MODEL") ?? "open-mistral-nemo";
 }
