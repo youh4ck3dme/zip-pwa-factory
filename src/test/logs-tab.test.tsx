@@ -9,21 +9,32 @@ window.HTMLElement.prototype.scrollIntoView = vi.fn();
 const mockExecution: Execution = {
   id: "exec-12345678",
   pipeline_id: "pipe-1",
-  owner_id: "user-1",
+  initial_input: "test input",
   status: "running",
   logs: [
     {
-      step_name: "Install Dependencies",
+      stepId: "step-1",
+      stepName: "Install Dependencies",
+      outputKey: "deps",
       status: "completed",
-      output: "npm install successful",
-      started_at: "2026-05-29T21:00:00Z",
-      completed_at: "2026-05-29T21:00:10Z"
+      data: null,
+      summary: "npm install successful",
+      promptUsed: "",
+      qualityScore: 1.0,
+      warnings: [],
+      durationMs: 10000,
     },
     {
-      step_name: "Run Tests",
+      stepId: "step-2",
+      stepName: "Run Tests",
+      outputKey: "tests",
       status: "running",
-      prompt_used: "Run all tests",
-      started_at: "2026-05-29T21:00:11Z"
+      data: null,
+      summary: undefined,
+      promptUsed: "Run all tests",
+      qualityScore: 1.0,
+      warnings: [],
+      durationMs: 0,
     }
   ],
   created_at: "2026-05-29T21:00:00Z",

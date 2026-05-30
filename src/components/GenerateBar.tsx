@@ -15,7 +15,7 @@ const supabase = createClient();
 
 export function GenerateBar() {
   const [intent, setIntent] = useState("");
-  const [input, setInput] = useState<Record<string, any>>({});
+  const [input, setInput] = useState<Record<string, unknown>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -61,7 +61,7 @@ export function GenerateBar() {
       
       // Navigate to pipeline builder
       navigate(`/pipeline/${data.id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error:", error);
       setError(error.message || "Failed to create pipeline");
     } finally {

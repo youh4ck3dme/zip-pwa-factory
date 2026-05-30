@@ -1,3 +1,4 @@
+// @ts-expect-error Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { aiErrorResponse, generatePipelineFromQuery } from "../_shared/ai.ts";
 
@@ -15,7 +16,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -48,7 +49,10 @@ Deno.serve(async (req) => {
     const stepsWithIds = draft.steps.map((s) => ({
       id: crypto.randomUUID(),
       name: s.name,
+      type: s.type,
       prompt: s.prompt,
+      outputKey: s.outputKey,
+      expectedOutput: s.expectedOutput,
     }));
 
     const { data: inserted, error } = await userClient

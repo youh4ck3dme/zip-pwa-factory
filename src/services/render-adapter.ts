@@ -1,6 +1,6 @@
 import { StepOutput } from "../types/pipeline";
 
-export function renderPWAArtifacts(artifacts: Record<string, any>): {
+export function renderPWAArtifacts(artifacts: Record<string, unknown>): {
   manifest: string;
   serviceWorker: string;
   html: string;
@@ -82,7 +82,7 @@ self.addEventListener('activate', (event) => {
 });`;
 }
 
-function generatePWAHTML(artifacts: Record<string, any>): string {
+function generatePWAHTML(artifacts: Record<string, unknown>): string {
   const manifest = artifacts.manifest || JSON.parse(generateDefaultManifest());
   const title = manifest?.name || "PWA";
   const themeColor = manifest?.theme_color || "#ffffff";
@@ -260,9 +260,9 @@ function generatePWAHTML(artifacts: Record<string, any>): string {
 }
 
 // Generate a complete PWA package as a ZIP-compatible structure
-export function generatePWAPackage(artifacts: Record<string, any>): {
+export function generatePWAPackage(artifacts: Record<string, unknown>): {
   files: Record<string, string>;
-  manifest: any;
+  manifest: unknown;
   serviceWorker: string;
   html: string;
 } {

@@ -80,12 +80,12 @@ function LogItem({ log, index, isLast }: { log: LogEntry; index: number; isLast:
       >
         <summary className="flex items-center justify-between cursor-pointer mb-3 text-muted-foreground group-open:text-foreground list-none focus:outline-none">
           <div className="flex items-center gap-3">
-            <span>{log.step_name || `Step ${index + 1}`}</span>
+            <span>{log.stepName || `Step ${index + 1}`}</span>
             <ChevronRight className="w-4 h-4 text-muted-foreground group-open:rotate-90 transition-transform" />
           </div>
           
           {log.status === "completed" && (
-            <div className="text-muted-foreground text-xs font-mono">COMPLETED</div>
+            <div className="text-muted-foreground text-xs font-mono">COMPLETED ({log.durationMs}ms)</div>
           )}
         </summary>
         
@@ -95,17 +95,17 @@ function LogItem({ log, index, isLast }: { log: LogEntry; index: number; isLast:
             <span className="uppercase text-[10px] tracking-wider font-semibold">{log.status}</span>
           </div>
           <div className="p-4 font-mono text-[13px] text-muted-foreground leading-relaxed whitespace-pre-wrap break-all">
-            {log.prompt_used && (
+            {log.promptUsed && (
               <div className="mb-4">
                 <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Prompt</div>
-                <div className="text-zinc-300">{log.prompt_used}</div>
+                <div className="text-zinc-300">{log.promptUsed}</div>
               </div>
             )}
             
-            {log.output && (
+            {(log.data || log.summary) && (
               <div className="mb-2">
-                <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Output</div>
-                <div className="text-zinc-400">{log.output}</div>
+                <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Output {log.qualityScore !== undefined && `(Score: ${log.qualityScore})`}</div>
+                <div className="text-zinc-400">{log.summary ? log.summary : JSON.stringify(log.data, null, 2)}</div>
               </div>
             )}
 

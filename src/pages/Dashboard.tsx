@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Loader2, Plus, Trash2, Workflow } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,12 +18,7 @@ export default function Dashboard() {
   const [pipelines, setPipelines] = useState<PipelineSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchPipelines();
-  }, [user]);
-
-  const fetchPipelines = async () => {
+  const fetchPipelines = useCallback(async () => {
     setLoading(true);
 
     if (user?.id === "dev-bypass-user") {
@@ -45,7 +40,13 @@ export default function Dashboard() {
       setPipelines(data || []);
     }
     setLoading(false);
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchPipelines();
+    }
+  }, [user, fetchPipelines]);
 
   const deletePipeline = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();

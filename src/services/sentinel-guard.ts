@@ -20,7 +20,7 @@ export function sentinelGuard(
   }
 }
 
-function validateManifest(manifest: any): boolean {
+function validateManifest(manifest: unknown): boolean {
   // Basic validation for Web App Manifest
   const requiredFields = ["name", "short_name", "start_url", "display"];
   return requiredFields.every(field => field in manifest);
@@ -32,12 +32,12 @@ function validateServiceWorker(code: string): boolean {
   return requiredMethods.every(method => code.includes(method));
 }
 
-function validateDeploymentConfig(config: any): boolean {
+function validateDeploymentConfig(config: unknown): boolean {
   // Basic validation for deployment config
   return config && typeof config === "object" && Object.keys(config).length > 0;
 }
 
-function validateIcons(icons: any): boolean {
+function validateIcons(icons: unknown): boolean {
   // Validate PWA icons
   if (!icons || typeof icons !== "object") return false;
   
@@ -47,7 +47,7 @@ function validateIcons(icons: any): boolean {
   // If it's an array, check for required sizes
   if (Array.isArray(icons)) {
     const requiredSizes = ["192x192", "512x512"];
-    return icons.some((icon: any) => 
+    return icons.some((icon: unknown) => 
       requiredSizes.some(size => icon.sizes?.includes(size))
     );
   }
@@ -56,7 +56,7 @@ function validateIcons(icons: any): boolean {
 }
 
 // Quality scoring functions
-export function calculateManifestQuality(manifest: any): number {
+export function calculateManifestQuality(manifest: unknown): number {
   let score = 0.5; // Base score
   
   // Check required fields

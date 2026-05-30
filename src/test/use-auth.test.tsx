@@ -27,18 +27,18 @@ function TestComponent() {
 }
 
 describe("useAuth", () => {
-  let authChangeCallback: (event: string, session: any) => void;
+  let authChangeCallback: (event: string, session: unknown) => void;
 
   beforeEach(() => {
     vi.resetAllMocks();
     
     // Mock onAuthStateChange to capture the callback
-    (supabase.auth.onAuthStateChange as any).mockImplementation((callback: any) => {
+    (supabase.auth.onAuthStateChange as unknown).mockImplementation((callback: unknown) => {
       authChangeCallback = callback;
       return { data: { subscription: { unsubscribe: vi.fn() } } };
     });
 
-    (supabase.from as any).mockReturnValue({
+    (supabase.from as unknown).mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -50,7 +50,7 @@ describe("useAuth", () => {
   });
 
   it("provides initial unauthenticated state", async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
+    (supabase.auth.getSession as unknown).mockResolvedValue({ data: { session: null } });
 
     render(
       <AuthProvider>
@@ -67,7 +67,7 @@ describe("useAuth", () => {
 
   it("provides authenticated state if session exists", async () => {
     const mockSession = { user: { id: "user-123" } };
-    (supabase.auth.getSession as any).mockResolvedValue({ data: { session: mockSession } });
+    (supabase.auth.getSession as unknown).mockResolvedValue({ data: { session: mockSession } });
 
     render(
       <AuthProvider>
@@ -81,13 +81,13 @@ describe("useAuth", () => {
 
   it("checks admin role if user exists", async () => {
     const mockSession = { user: { id: "admin-123" } };
-    (supabase.auth.getSession as any).mockResolvedValue({ data: { session: mockSession } });
+    (supabase.auth.getSession as unknown).mockResolvedValue({ data: { session: mockSession } });
     
     // Mock user_roles query
     const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { role: "admin" } });
     const mockEq2 = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
     const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
-    (supabase.from as any).mockReturnValue({ select: vi.fn().mockReturnValue({ eq: mockEq1 }) });
+    (supabase.from as unknown).mockReturnValue({ select: vi.fn().mockReturnValue({ eq: mockEq1 }) });
 
     render(
       <AuthProvider>
@@ -100,7 +100,7 @@ describe("useAuth", () => {
   });
 
   it("updates state when auth state changes", async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
+    (supabase.auth.getSession as unknown).mockResolvedValue({ data: { session: null } });
 
     render(
       <AuthProvider>

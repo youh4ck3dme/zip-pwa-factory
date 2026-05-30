@@ -9,7 +9,7 @@ const supabase = createClient();
 export function PipelineBuilder() {
   const params = useParams();
   const navigate = useNavigate();
-  const [pipeline, setPipeline] = useState<{ id: string; spec: PipelineSpec; pwa_config: any } | null>(null);
+  const [pipeline, setPipeline] = useState<{ id: string; spec: PipelineSpec; pwa_config: unknown } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export function PipelineBuilder() {
         }
         
         setPipeline(data);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error fetching pipeline:", error);
         setError(error.message || "Failed to load pipeline");
       } finally {
@@ -82,7 +82,7 @@ export function PipelineBuilder() {
       
       // Navigate to execution page
       navigate(`/pipeline/${pipeline.id}/execution/${result.executionId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error executing pipeline:", error);
       setError(error.message || "Failed to execute pipeline");
     } finally {
@@ -125,7 +125,7 @@ export function PipelineBuilder() {
       // Show success message
       setError("Pipeline saved successfully!");
       setTimeout(() => setError(null), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving pipeline:", error);
       setError(error.message || "Failed to save pipeline");
     }

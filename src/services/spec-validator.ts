@@ -1,7 +1,7 @@
 import { PipelineSpecSchema, StepSchema } from "../types/pipeline";
 import { z } from "zod";
 
-export function validateAndRepairPipeline(spec: any): z.infer<typeof PipelineSpecSchema> {
+export function validateAndRepairPipeline(spec: unknown): z.infer<typeof PipelineSpecSchema> {
   try {
     return PipelineSpecSchema.parse(spec);
   } catch (error) {
@@ -14,13 +14,13 @@ export function validateAndRepairPipeline(spec: any): z.infer<typeof PipelineSpe
   }
 }
 
-async function repairWithLLM(spec: any, errors: z.ZodIssue[]): Promise<any> {
+async function repairWithLLM(spec: unknown, errors: z.ZodIssue[]): Promise<unknown> {
   // In a real implementation, you'd call Mistral API here
   // to fix the validation errors
   console.warn("Validation errors:", errors);
   
   // Simple repair: remove invalid steps
-  const validSteps = spec.steps.filter((step: any) => {
+  const validSteps = spec.steps.filter((step: Record<string, unknown>) => {
     try {
       StepSchema.parse(step);
       return true;
@@ -36,11 +36,11 @@ async function repairWithLLM(spec: any, errors: z.ZodIssue[]): Promise<any> {
 }
 
 // Sync version for immediate validation without LLM
-export function validatePipelineSync(spec: any): z.infer<typeof PipelineSpecSchema> {
+export function validatePipelineSync(spec: unknown): z.infer<typeof PipelineSpecSchema> {
   return PipelineSpecSchema.parse(spec);
 }
 
 // Validate individual step
-export function validateStepSync(step: any) {
+export function validateStepSync(step: Record<string, unknown>) {
   return StepSchema.parse(step);
 }

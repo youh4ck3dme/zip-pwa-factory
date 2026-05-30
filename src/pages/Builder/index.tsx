@@ -60,14 +60,16 @@ export default function Builder() {
         logs: [
           ...row.logs,
           {
-            step_id: "stale",
-            step_name: "System Timeout",
+            stepId: "stale",
+            stepName: "System Timeout",
+            outputKey: "timeout",
             status: "failed",
             error: "Execution timed out or backend process died.",
-            prompt_used: "",
-            output: null,
-            started_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
+            promptUsed: "",
+            data: null,
+            qualityScore: 0,
+            warnings: [],
+            durationMs: 0,
           },
         ],
       };

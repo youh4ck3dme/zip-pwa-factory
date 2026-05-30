@@ -8,7 +8,7 @@ const supabase = createClient();
 export function ExecutionPage() {
   const params = useParams();
   const navigate = useNavigate();
-  const [execution, setExecution] = useState<any>(null);
+  const [execution, setExecution] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [renderedAssets, setRenderedAssets] = useState<{
     manifest: string;
@@ -44,7 +44,7 @@ export function ExecutionPage() {
         if (data.status === "completed" && data.artifacts) {
           setRenderedAssets(renderPWAArtifacts(data.artifacts));
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error fetching execution:", error);
         setError(error.message || "Failed to load execution");
       } finally {
@@ -145,7 +145,7 @@ ${content}
         <div>
           <h2 className="text-xl font-semibold mb-4">Logs</h2>
           <div className="space-y-2">
-            {execution.logs?.map((log: any, index: number) => (
+            {execution.logs?.map((log: Record<string, unknown>, index: number) => (
               <div key={index} className="p-2 border rounded bg-white text-black">
                 <div className="flex justify-between">
                   <strong>{log.stepTitle || log.step_id}</strong>

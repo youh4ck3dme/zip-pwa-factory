@@ -3,7 +3,7 @@ import { templates } from "../templates/pwa-templates";
 
 // Mock Mistral client for now - replace with actual @mistralai/mistral-js when available
 class MockMistralClient {
-  async embeddings(params: any) {
+  async embeddings(params: unknown) {
     // Mock response
     return {
       data: [
@@ -20,7 +20,7 @@ class MockMistralClient {
     };
   }
 
-  async chat(params: any) {
+  async chat(params: unknown) {
     // Mock chat response
     return {
       choices: [
@@ -48,7 +48,7 @@ class MockMistralClient {
 
 const client = new MockMistralClient();
 
-export async function generatePipelineSpec(intent: string, input: Record<string, any>): Promise<z.infer<typeof PipelineSpecSchema>> {
+export async function generatePipelineSpec(intent: string, input: Record<string, unknown>): Promise<z.infer<typeof PipelineSpecSchema>> {
   const template = templates[intent];
   if (!template) {
     throw new Error(`Template not found for intent: ${intent}`);
@@ -81,7 +81,7 @@ export async function generatePipelineSpec(intent: string, input: Record<string,
   return PipelineSpecSchema.parse(pipelineSpec);
 }
 
-function fillTemplate(template: string, variables: Record<string, any>): string {
+function fillTemplate(template: string, variables: Record<string, unknown>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
     return variables[key] !== undefined ? String(variables[key]) : `{{${key}}}`;
   });

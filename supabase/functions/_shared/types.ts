@@ -1,6 +1,9 @@
 export type PipelineStepDraft = {
   name: string;
+  type: string;
   prompt: string;
+  outputKey: string;
+  expectedOutput?: string;
 };
 
 export type PipelineDraft = {

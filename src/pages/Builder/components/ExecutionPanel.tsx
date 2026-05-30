@@ -83,6 +83,20 @@ export function ExecutionPanel({
           <p className="text-sm">{pipeline.query}</p>
         </div>
       )}
+
+      {currentExecution?.status === "completed" && currentExecution.pwa_assets && currentExecution.pwa_assets["index.html"] && (
+        <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col h-[500px]">
+          <div className="px-4 py-2 border-b border-border text-xs uppercase tracking-wider text-muted-foreground bg-muted/30">
+            Preview (Sandboxed)
+          </div>
+          <iframe 
+            srcDoc={currentExecution.pwa_assets["index.html"]} 
+            sandbox="allow-scripts"
+            title="App Preview"
+            className="w-full h-full bg-white border-0"
+          />
+        </div>
+      )}
     </aside>
   );
 }

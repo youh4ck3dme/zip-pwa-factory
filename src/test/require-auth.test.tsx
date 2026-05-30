@@ -6,7 +6,7 @@ import * as authHook from "@/hooks/useAuth";
 
 describe("RequireAuth", () => {
   it("shows loading spinner when auth is loading", () => {
-    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: null, loading: true } as any);
+    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: null, loading: true } as unknown);
     
     render(
       <MemoryRouter>
@@ -20,7 +20,7 @@ describe("RequireAuth", () => {
   });
 
   it("redirects to /auth when user is not authenticated", () => {
-    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: null, loading: false } as any);
+    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: null, loading: false } as unknown);
     
     render(
       <MemoryRouter initialEntries={["/protected"]}>
@@ -36,7 +36,7 @@ describe("RequireAuth", () => {
   });
 
   it("renders children when user is authenticated", () => {
-    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: { id: "1" }, loading: false } as any);
+    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: { id: "1" }, loading: false } as unknown);
     
     render(
       <MemoryRouter initialEntries={["/protected"]}>

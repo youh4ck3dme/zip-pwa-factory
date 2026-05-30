@@ -19,13 +19,13 @@ describe("Dashboard Page", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     // Default user
-    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: { id: "1" } } as any);
+    vi.spyOn(authHook, "useAuth").mockReturnValue({ user: { id: "1" } } as unknown);
   });
 
   it("renders loading state initially", () => {
     const mockSelect = vi.fn().mockResolvedValue({ data: [], error: null });
     const mockOrder = vi.fn().mockReturnValue({ select: mockSelect });
-    (supabase.from as any).mockReturnValue({ select: vi.fn().mockReturnValue({ order: mockOrder }) });
+    (supabase.from as unknown).mockReturnValue({ select: vi.fn().mockReturnValue({ order: mockOrder }) });
     
     render(
       <MemoryRouter>
@@ -40,7 +40,7 @@ describe("Dashboard Page", () => {
   it("renders empty state when no pipelines exist", async () => {
     const mockOrder = vi.fn().mockResolvedValue({ data: [], error: null });
     const mockSelect = vi.fn().mockReturnValue({ order: mockOrder });
-    (supabase.from as any).mockReturnValue({ select: mockSelect });
+    (supabase.from as unknown).mockReturnValue({ select: mockSelect });
 
     render(
       <MemoryRouter>
@@ -61,7 +61,7 @@ describe("Dashboard Page", () => {
 
     const mockOrder = vi.fn().mockResolvedValue({ data: mockPipelines, error: null });
     const mockSelect = vi.fn().mockReturnValue({ order: mockOrder });
-    (supabase.from as any).mockReturnValue({ select: mockSelect });
+    (supabase.from as unknown).mockReturnValue({ select: mockSelect });
 
     render(
       <MemoryRouter>
@@ -87,7 +87,7 @@ describe("Dashboard Page", () => {
     const mockEq = vi.fn().mockResolvedValue({ error: null });
     const mockDelete = vi.fn().mockReturnValue({ eq: mockEq });
     
-    (supabase.from as any).mockImplementation((table: string) => {
+    (supabase.from as unknown).mockImplementation((table: string) => {
       if (table === "pipelines") {
         return { select: mockSelect, delete: mockDelete };
       }

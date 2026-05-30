@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildMockCompletion, buildMockPipeline, hashQuery, truncateTitle } from "@shared-ai/ai-mock";
+import { buildMockCompletion, buildMockPipeline, hashQuery, truncateTitle } from "../../supabase/functions/_shared/ai-mock";
 
 describe("pipeline AI mock", () => {
   const query = "Summarize customer feedback into action items";
 
   it("returns 3 steps with correct template placeholders", () => {
     const draft = buildMockPipeline(query);
-    expect(draft.steps).toHaveLength(3);
+    expect(draft.steps).toHaveLength(4);
     expect(draft.steps[0]?.prompt).toContain("{{input}}");
-    expect(draft.steps[1]?.prompt).toContain("{{previous_output}}");
-    expect(draft.steps[2]?.prompt).toContain("{{previous_output}}");
+    expect(draft.steps[1]?.prompt).toContain("{{appSpec}}");
+    expect(draft.steps[2]?.prompt).toContain("{{renderSpec}}");
+    expect(draft.steps[3]?.prompt).toContain("{{validationResult}}");
   });
 
   it("uses truncated query as title", () => {

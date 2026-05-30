@@ -19,20 +19,63 @@ export function buildMockPipeline(query: string): PipelineDraft {
   const h = hashQuery(query);
   const suffix = (h % 900 + 100).toString();
 
+  // If the query is specifically testing missing keys, add a step that uses {{undefinedKey}}
+  if (query.includes("TEST_MISSING_KEY")) {
+    return {
+      title: "Negative Test Pipeline",
+      steps: [
+        {
+          name: "Faulty Step",
+          type: "ai_generate",
+          prompt: "Analyze this: {{undefinedKey}}",
+          outputKey: "errorResult"
+        }
+      ]
+    };
+  }
+
+  // If testing webhooks, inject a webhook step
+  if (query.includes("TEST_WEBHOOK")) {
+    return {
+      title: "Webhook Test Pipeline",
+      steps: [
+        {
+          name: "Webhook Step",
+          type: "webhook",
+          prompt: "Send data",
+          outputKey: "webhookResult"
+        }
+      ]
+    };
+  }
+
   return {
     title: truncateTitle(query),
     steps: [
       {
-        name: `Analyze ${suffix}`,
-        prompt: `Analyze the following user input and extract key themes:\n\n{{input}}`,
+        name: `Generate App ${suffix}`,
+        type: "ai_generate",
+        prompt: `Generate the PWA spec for: {{input}}`,
+        expectedOutput: "json",
+        outputKey: "appSpec"
       },
       {
-        name: `Transform ${suffix}`,
-        prompt: `Transform the analysis into structured insights:\n\n{{previous_output}}`,
+        name: `Transform Spec ${suffix}`,
+        type: "transform",
+        prompt: `Transform into rendering format: {{appSpec}}`,
+        outputKey: "renderSpec"
       },
       {
-        name: `Finalize ${suffix}`,
-        prompt: `Produce a concise final summary with actionable items:\n\n{{previous_output}}`,
+        name: `Validate Specs ${suffix}`,
+        type: "validate",
+        prompt: `Check quality of {{renderSpec}}`,
+        outputKey: "validationResult"
+      },
+      {
+        name: `Export Package ${suffix}`,
+        type: "export",
+        prompt: `Export PWA using {{renderSpec}} and {{validationResult}}`,
+        outputKey: "exportPackage"
       },
     ],
   };
