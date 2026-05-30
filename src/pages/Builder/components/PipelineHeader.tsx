@@ -1,4 +1,4 @@
-import { ArrowLeft, Code as CodeIcon, Loader2, Save, Shield, Terminal, Workflow } from "lucide-react";
+import { ArrowLeft, Package as PackageIcon, Loader2, Save, Shield, Terminal, Workflow } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useBuilderStore, type TabId } from "@/store/useBuilderStore";
 
@@ -67,11 +67,11 @@ export function PipelineHeader({
       <div className="max-w-7xl mx-auto px-3 sm:px-4 flex gap-1 border-b border-border -mb-px overflow-x-auto hide-scrollbar">
         {([
           { id: "workflow", label: "Workflow", icon: <Workflow className="h-4 w-4" /> },
-          { id: "code", label: "Code", icon: <CodeIcon className="h-4 w-4" /> },
+          { id: "export", label: "Export & Preview", icon: <PackageIcon className="h-4 w-4" /> },
           { id: "logs", label: "Logs", icon: <Terminal className="h-4 w-4" /> },
         ] as const).map((t) => {
           const active = tab === t.id;
-          const visible = t.id !== "code" || canEdit;
+          const visible = t.id !== "export" || canEdit;
           if (!visible) return null;
           return (
             <button

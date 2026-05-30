@@ -1,5 +1,5 @@
-import { Loader2, Play } from "lucide-react";
 import { useBuilderStore } from "@/store/useBuilderStore";
+import { Loader2, Play } from "lucide-react";
 import { StatusBadge } from "./LogsTab";
 
 export function ExecutionPanel({
@@ -56,9 +56,8 @@ export function ExecutionPanel({
                 <button
                   type="button"
                   onClick={() => loadPastExecution(ex.id)}
-                  className={`w-full text-left px-2 py-1.5 rounded text-xs mono flex items-center justify-between gap-2 hover:bg-muted/50 transition-colors ${
-                    currentExecution?.id === ex.id ? "bg-muted/60" : ""
-                  }`}
+                  className={`w-full text-left px-2 py-1.5 rounded text-xs mono flex items-center justify-between gap-2 hover:bg-muted/50 transition-colors ${currentExecution?.id === ex.id ? "bg-muted/60" : ""
+                    }`}
                 >
                   <span className="truncate">{ex.id.slice(0, 8)}</span>
                   <StatusBadge status={ex.status} compact />
@@ -89,8 +88,8 @@ export function ExecutionPanel({
           <div className="px-4 py-2 border-b border-border text-xs uppercase tracking-wider text-muted-foreground bg-muted/30">
             Preview (Sandboxed)
           </div>
-          <iframe 
-            srcDoc={currentExecution.pwa_assets["index.html"]} 
+          <iframe
+            srcDoc={currentExecution.pwa_assets["index.html"]}
             sandbox="allow-scripts"
             title="App Preview"
             className="w-full h-full bg-white border-0"

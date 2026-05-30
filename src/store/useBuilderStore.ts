@@ -9,7 +9,7 @@ export type Pipeline = {
   steps: Step[];
   owner_id: string | null;
 };
-export type TabId = "workflow" | "code" | "logs";
+export type TabId = "workflow" | "export" | "logs";
 
 interface BuilderState {
   pipeline: Pipeline | null;

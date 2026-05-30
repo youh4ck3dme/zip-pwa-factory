@@ -10,7 +10,7 @@ import { useBuilderStore, type Step, type Pipeline } from "@/store/useBuilderSto
 
 import { PipelineHeader } from "./components/PipelineHeader";
 import { WorkflowTab } from "./components/WorkflowTab";
-import { CodeTab } from "./components/CodeTab";
+import { ExportTab } from "./components/ExportTab";
 import { LogsView } from "./components/LogsTab";
 import { ExecutionPanel } from "./components/ExecutionPanel";
 import type { Json } from "@/integrations/supabase/types";
@@ -300,7 +300,7 @@ export default function Builder() {
           </div>
         )}
 
-        {tab === "code" && <CodeTab canEdit={canEdit} />}
+        {tab === "export" && <ExportTab canEdit={canEdit} />}
 
         {tab === "logs" && <LogsView execution={execution} running={running} />}
       </main>
