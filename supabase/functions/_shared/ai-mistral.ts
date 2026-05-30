@@ -1,4 +1,4 @@
-import { getMistralApiKey, getMistralModel } from "./ai-config.ts";
+import { getMistralApiKeys, getMistralModel } from "./ai-config.ts";
 import type { PipelineDraft } from "./types.ts";
 import { AiError } from "./types.ts";
 
@@ -70,21 +70,63 @@ function validatePipelineDraft(args: Record<string, unknown>): PipelineDraft {
 
   const parsed: PipelineDraft = {
     title,
-    steps: steps.map((s: Record<string, unknown>) => {
+    steps: steps.map((s: Record<string, unknown>, idx: number) => {
       if (typeof s.name !== "string" || typeof s.prompt !== "string") {
         throw new AiError("AI response invalid", 502);
       }
-      return { name: s.name, prompt: s.prompt };
+      return { 
+        name: s.name, 
+        prompt: s.prompt,
+        type: "generate",
+        outputKey: `step_${idx + 1}`
+      };
     }),
   };
   return parsed;
 }
 
+async function fetchWithMistralRetry(
+  url: string,
+  optionsFn: (key: string) => RequestInit
+): Promise<Response> {
+  const keys = getMistralApiKeys();
+  // Start from a random key index for simple load balancing
+  const startIndex = Math.floor(Math.random() * keys.length);
+  
+  let lastResp: Response | null = null;
+  let lastText = "";
+
+  for (let i = 0; i < keys.length; i++) {
+    const keyIndex = (startIndex + i) % keys.length;
+    const key = keys[keyIndex];
+    
+    const resp = await fetch(url, optionsFn(key));
+    if (resp.ok) return resp;
+
+    lastResp = resp;
+    lastText = await resp.text();
+
+    // If it's a rate limit or auth issue, try the next key
+    if (resp.status === 429 || resp.status === 401 || resp.status === 402 || resp.status === 403) {
+      console.warn(`Mistral key at index ${keyIndex} failed with ${resp.status}, trying next key if available...`);
+      continue;
+    }
+
+    // Other errors (like 400 Bad Request) fail immediately
+    break;
+  }
+
+  if (lastResp) {
+    throw mapMistralHttpError(lastResp.status, lastText);
+  }
+  throw new AiError("No valid API keys available", 500);
+}
+
 export async function mistralGeneratePipeline(query: string): Promise<PipelineDraft> {
-  const resp = await fetch(MISTRAL_URL, {
+  const resp = await fetchWithMistralRetry(MISTRAL_URL, (key) => ({
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getMistralApiKey()}`,
+      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -96,12 +138,7 @@ export async function mistralGeneratePipeline(query: string): Promise<PipelineDr
       tools: [CREATE_PIPELINE_TOOL],
       tool_choice: { type: "function", function: { name: "create_pipeline" } },
     }),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw mapMistralHttpError(resp.status, text);
-  }
+  }));
 
   const data = await resp.json();
   const args = parseToolCallArguments(data as Record<string, unknown>);
@@ -109,22 +146,17 @@ export async function mistralGeneratePipeline(query: string): Promise<PipelineDr
 }
 
 export async function mistralCompletePrompt(prompt: string): Promise<string> {
-  const resp = await fetch(MISTRAL_URL, {
+  const resp = await fetchWithMistralRetry(MISTRAL_URL, (key) => ({
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getMistralApiKey()}`,
+      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: getMistralModel(),
       messages: [{ role: "user", content: prompt }],
     }),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw mapMistralHttpError(resp.status, text);
-  }
+  }));
 
   const data = await resp.json();
   const message = (data as { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> })

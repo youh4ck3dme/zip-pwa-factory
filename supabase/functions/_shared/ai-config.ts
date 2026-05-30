@@ -11,12 +11,16 @@ export function resolveAiProvider(): AiProvider {
   throw new AiError(`Invalid AI_PROVIDER: ${raw}`, 500);
 }
 
-export function getMistralApiKey(): string {
-  const key = Deno.env.get("MISTRAL_API_KEY");
-  if (!key) {
+export function getMistralApiKeys(): string[] {
+  const keysEnv = Deno.env.get("MISTRAL_API_KEYS") || Deno.env.get("MISTRAL_API_KEY");
+  if (!keysEnv) {
     throw new AiError("Server configuration error", 500);
   }
-  return key;
+  const keys = keysEnv.split(",").map((k: string) => k.trim()).filter(Boolean);
+  if (keys.length === 0) {
+    throw new AiError("Server configuration error", 500);
+  }
+  return keys;
 }
 
 export function getMistralModel(): string {
