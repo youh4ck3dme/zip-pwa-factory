@@ -62,6 +62,50 @@ function isAgencyPipeline(pipelineTitle: string | undefined, context: Record<str
 }
 
 /**
+ * Extract rich text from various context formats
+ */
+function extractText(data: unknown, fallback: string): string {
+  if (!data) return fallback;
+  if (typeof data === 'string') return data;
+  if (typeof data === 'object' && data !== null) {
+    const obj = data as Record<string, unknown>;
+    return extractText(obj.headline || obj.title || obj.name || obj.text || obj.content, fallback);
+  }
+  return fallback;
+}
+
+/**
+ * Extract description from various context formats
+ */
+function extractDescription(data: unknown, fallback: string): string {
+  if (!data) return fallback;
+  if (typeof data === 'string') return data;
+  if (typeof data === 'object' && data !== null) {
+    const obj = data as Record<string, unknown>;
+    return extractDescription(
+      obj.description || obj.subheadline || obj.tagline || obj.details || obj.bio,
+      fallback
+    );
+  }
+  return fallback;
+}
+
+/**
+ * Extract items array from context
+ */
+function extractItems(data: unknown): Array<{ name: string; description: string; price?: string }> {
+  if (!data) return [];
+  if (Array.isArray(data)) {
+    return data.map((item, index) => ({
+      name: extractText(item, `Item ${index + 1}`),
+      description: extractDescription(item, ""),
+      price: (item as any)?.price || (item as any)?.cost
+    }));
+  }
+  return [];
+}
+
+/**
  * Generate a polished Agency Landing PWA package
  * Creates a premium, production-ready landing page for local businesses
  */
@@ -74,66 +118,151 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
   const services = safeContext.services || [];
   const bookingCTA = safeContext.bookingCTA || {};
   
-  // Determine business type from title
-  const lowerTitle = pipelineTitle.toLowerCase();
-  let businessType = "Business";
+  // Extract from agencySpec if it has structured data
+  let brandName = pipelineTitle;
+  let seoDescription = `Discover the best ${pipelineTitle.toLowerCase()} services. Modern, professional, and convenient.`;
+  let heroHeadline = `Premium ${pipelineTitle} Experience`;
+  let heroSubheadline = `Discover the best ${pipelineTitle.toLowerCase()} services in town. Modern, professional, and convenient.`;
+  let heroCTA = "Book Now";
+  let contactInfo = {};
+  let openingHours = [];
+  let socialLinks = [];
+  let menuItems = [];
+  
+  // Try to extract rich data from agencySpec
+  if (typeof agencySpec === 'object' && agencySpec !== null) {
+    const spec = agencySpec as Record<string, unknown>;
+    
+    // Extract from pwaSpecification
+    const pwaSpec = spec.pwaSpecification as Record<string, unknown> | undefined;
+    if (pwaSpec) {
+      brandName = extractText(pwaSpec.name || pwaSpec.title, brandName);
+      seoDescription = extractDescription(pwaSpec.seo?.meta?.description || pwaSpec.description, seoDescription);
+    }
+    
+    // Extract from landingPageStructure
+    const landingPage = spec.landingPageStructure as Record<string, unknown> | undefined;
+    if (landingPage) {
+      const hero = landingPage.heroSection as Record<string, unknown> | undefined;
+      if (hero) {
+        heroHeadline = extractText(hero.headline || hero.title, heroHeadline);
+        heroSubheadline = extractDescription(hero.subheadline || hero.tagline || hero.description, heroSubheadline);
+        heroCTA = extractText(hero.cta || hero.callToAction, heroCTA);
+      }
+      
+      // Extract contact/footers
+      const footer = landingPage.footer as Record<string, unknown> | undefined;
+      if (footer) {
+        contactInfo = {
+          phone: extractText(footer.contact?.phone, "+1-555-0123"),
+          email: extractText(footer.contact?.email, "contact@business.com"),
+          address: extractText(footer.contact?.address, "123 Main Street")
+        };
+        openingHours = extractItems(footer.hours || footer.openingHours) || [];
+        socialLinks = extractItems(footer.social || footer.socialMedia) || [];
+      }
+      
+      // Extract menu for restaurants
+      const menu = landingPage.menuPreview as Record<string, unknown> | undefined;
+      if (menu) {
+        menuItems = extractItems(menu.items || menu.dishes);
+      }
+      
+      // Extract reservation system
+      const reservation = spec.reservationSystem as Record<string, unknown> | undefined;
+      if (reservation) {
+        bookingHeadline = extractText(reservation.headline || reservation.title, "Ready to book?");
+        bookingDescription = extractDescription(reservation.description, `Schedule your appointment today and experience the difference.`);
+        bookingButtonText = extractText(reservation.buttonText || reservation.cta, "Book Appointment");
+      }
+    }
+    
+    // Fallback to direct fields in agencySpec
+    if (!brandName || brandName === pipelineTitle) {
+      brandName = extractText(spec.name || spec.title || spec.businessName, pipelineTitle);
+    }
+  }
+  
+  // Determine colors from agencySpec theme or fallback to defaults
   let primaryColor = "#1a1a2e";
   let secondaryColor = "#16213e";
   let accentColor = "#e94560";
   
-  if (lowerTitle.includes("barber")) {
-    businessType = "Barber Shop";
-    primaryColor = "#0f0f0f";
-    secondaryColor = "#1a1a1a";
-    accentColor = "#b8860b"; // Gold
-  } else if (lowerTitle.includes("salon") || lowerTitle.includes("spa")) {
-    businessType = "Salon & Spa";
-    primaryColor = "#1a1a2e";
-    secondaryColor = "#16213e";
-    accentColor = "#e94560"; // Pink/Red
-  } else if (lowerTitle.includes("restaurant") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
-    businessType = "Restaurant";
-    primaryColor = "#0f0f0f";
-    secondaryColor = "#1a1a1a";
-    accentColor = "#d4a574"; // Warm tone
-  } else if (lowerTitle.includes("agency")) {
-    businessType = "Creative Agency";
-    primaryColor = "#0a0a1a";
-    secondaryColor = "#141428";
-    accentColor = "#00d4ff"; // Cyan
+  const lowerTitle = pipelineTitle.toLowerCase();
+  
+  // Extract colors from agencySpec theme if available
+  if (typeof agencySpec === 'object' && agencySpec !== null) {
+    const spec = agencySpec as Record<string, unknown>;
+    const theme = spec.theme as Record<string, unknown> | undefined;
+    if (theme) {
+      primaryColor = extractText(theme.primaryColor, primaryColor);
+      secondaryColor = extractText(theme.secondaryColor, secondaryColor);
+      accentColor = extractText(theme.accentColor || theme.brandColor, accentColor);
+    }
   }
   
-  // Generate hero content
-  const heroHeadline = typeof heroSection === 'string' ? heroSection : 
-    (heroSection as any)?.headline || `Premium ${businessType} Experience`;
-  const heroSubheadline = (heroSection as any)?.subheadline || 
-    `Discover the best ${businessType.toLowerCase()} services in town. Modern, professional, and convenient.`;
-  const heroCTA = (heroSection as any)?.cta || "Book Now";
+  // Fallback color scheme based on business type
+  if (primaryColor === "#1a1a2e") {
+    if (lowerTitle.includes("barber")) {
+      primaryColor = "#0f0f0f";
+      secondaryColor = "#1a1a1a";
+      accentColor = "#b8860b"; // Gold
+    } else if (lowerTitle.includes("salon") || lowerTitle.includes("spa")) {
+      primaryColor = "#1a1a2e";
+      secondaryColor = "#16213e";
+      accentColor = "#e94560";
+    } else if (lowerTitle.includes("restaurant") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
+      primaryColor = "#0f0f0f";
+      secondaryColor = "#1a1a1a";
+      accentColor = "#d4a574";
+    } else if (lowerTitle.includes("agency")) {
+      primaryColor = "#0a0a1a";
+      secondaryColor = "#141428";
+      accentColor = "#00d4ff";
+    }
+  }
+  
+  // Generate booking CTA
+  let bookingHeadline = "Ready to book?";
+  let bookingDescription = `Schedule your appointment today and experience the difference.`;
+  let bookingButtonText = "Book Appointment";
+  
+  if (typeof bookingCTA === 'object' && bookingCTA !== null) {
+    const bcta = bookingCTA as Record<string, unknown>;
+    bookingHeadline = extractText(bcta.headline || bcta.title, bookingHeadline);
+    bookingDescription = extractDescription(bcta.description || bcta.text, bookingDescription);
+    bookingButtonText = extractText(bcta.buttonText || bcta.cta, bookingButtonText);
+  }
   
   // Generate services list
-  const servicesList = Array.isArray(services) ? services : [
+  const servicesList = extractItems(services) || [
     { name: "Professional Service", description: "Expert care tailored to your needs" },
     { name: "Premium Quality", description: "Only the best for our customers" },
     { name: "Convenient Booking", description: "Easy online appointment scheduling" },
     { name: "5-Star Experience", description: "Rated excellent by our clients" }
   ];
   
-  // Generate booking CTA
-  const bookingHeadline = typeof bookingCTA === 'string' ? bookingCTA : 
-    (bookingCTA as any)?.headline || "Ready to book?";
-  const bookingDescription = (bookingCTA as any)?.description || 
-    `Schedule your appointment today and experience the difference.`;
-  const bookingButtonText = (bookingCTA as any)?.buttonText || "Book Appointment";
+  // Use menu items if available (for restaurants)
+  if (menuItems.length > 0) {
+    // If we have menu items and no services, use menu items as services
+    if (servicesList.length === 0 || (servicesList.length === 1 && servicesList[0].name === "Professional Service")) {
+      // Don't replace if services already has real data
+      if (servicesList.length === 4 && servicesList[0].name === "Professional Service") {
+        // These are fallbacks, replace with menu items
+        servicesList.splice(0, servicesList.length, ...menuItems.slice(0, 4));
+      }
+    }
+  }
   
-  // Build HTML
+  // Build HTML with rich data
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${heroSubheadline}">
+  <meta name="description" content="${seoDescription.replace(/"/g, '&quot;')}">
   <meta name="theme-color" content="${primaryColor}">
-  <title>${pipelineTitle}</title>
+  <title>${brandName.replace(/"/g, '&quot;')}</title>
   <link rel="manifest" href="/manifest.json">
   <style>
     * {
@@ -291,10 +420,47 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
     
     /* Footer */
     .footer {
-      padding: 3rem 0;
-      text-align: center;
+      padding: 3rem 0 2rem 0;
       border-top: 1px solid rgba(255,255,255,0.1);
-      opacity: 0.7;
+      background: rgba(0,0,0,0.2);
+    }
+    .footer-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+    .footer-brand h3 {
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    .footer-brand p, .footer-contact p, .footer-hours p, .footer-social p {
+      color: rgba(255,255,255,0.7);
+      font-size: 0.9rem;
+      margin: 0.25rem 0;
+    }
+    .footer-contact a, .footer-social a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .footer-contact a:hover, .footer-social a:hover {
+      text-decoration: underline;
+    }
+    .footer-hours h4, .footer-social h4 {
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .footer-copyright {
+      text-align: center;
+      padding-top: 2rem;
+      margin-top: 2rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      font-size: 0.85rem;
     }
     
     /* Responsive */
@@ -366,9 +532,9 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
   <div class="container">
     <!-- Hero Section -->
     <section class="hero">
-      <h1>${heroHeadline}</h1>
-      <p>${heroSubheadline}</p>
-      <a href="#booking" class="cta-button">${heroCTA}</a>
+      <h1>${heroHeadline.replace(/"/g, '&quot;')}</h1>
+      <p>${heroSubheadline.replace(/"/g, '&quot;')}</p>
+      <a href="#booking" class="cta-button">${heroCTA.replace(/"/g, '&quot;')}</a>
     </section>
     
     <!-- Services Section -->
@@ -388,14 +554,38 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
     
     <!-- Booking Section -->
     <section class="booking" id="booking">
-      <h2>${bookingHeadline}</h2>
-      <p>${bookingDescription}</p>
-      <a href="tel:+1234567890" class="cta-button">${bookingButtonText}</a>
+      <h2>${bookingHeadline.replace(/"/g, '&quot;')}</h2>
+      <p>${bookingDescription.replace(/"/g, '&quot;')}</p>
+      <a href="tel:${(contactInfo as any).phone || '+1-555-0123'}" class="cta-button">${bookingButtonText.replace(/"/g, '&quot;')}</a>
     </section>
     
     <!-- Footer -->
     <footer class="footer">
-      <p>&copy; ${new Date().getFullYear()} ${pipelineTitle}. All rights reserved.</p>
+      <div class="footer-content">
+        <div class="footer-brand">
+          <h3>${brandName.replace(/"/g, '&quot;')}</h3>
+          <p>${(contactInfo as any).address || '123 Main Street'}</p>
+        </div>
+        <div class="footer-contact">
+          <p><strong>Phone:</strong> <a href="tel:${(contactInfo as any).phone || '+1-555-0123'}">${(contactInfo as any).phone || '+1-555-0123'}</a></p>
+          <p><strong>Email:</strong> <a href="mailto:${(contactInfo as any).email || 'contact@business.com'}">${(contactInfo as any).email || 'contact@business.com'}</a></p>
+        </div>
+        ${openingHours.length > 0 ? `
+        <div class="footer-hours">
+          <h4>Opening Hours</h4>
+          ${openingHours.map((h: any) => `<p>${h.name}: ${h.description || h.price || ''}</p>`).join('')}
+        </div>
+        ` : ''}
+        ${socialLinks.length > 0 ? `
+        <div class="footer-social">
+          <h4>Connect With Us</h4>
+          ${socialLinks.map((s: any) => `<a href="${s.description || s.price || '#'}" target="_blank">${s.name}</a>`).join(' | ')}
+        </div>
+        ` : ''}
+      </div>
+      <div class="footer-copyright">
+        <p>&copy; ${new Date().getFullYear()} ${brandName.replace(/"/g, '&quot;')}. All rights reserved.</p>
+      </div>
     </footer>
   </div>
   
@@ -442,15 +632,15 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
 </body>
 </html>`;
   
-  // Build manifest
+  // Build manifest with rich data
   const manifest = {
-    name: pipelineTitle,
-    short_name: pipelineTitle.substring(0, 12),
+    name: brandName,
+    short_name: brandName.substring(0, 12),
     start_url: "/",
     display: "standalone",
     background_color: primaryColor,
     theme_color: primaryColor,
-    description: heroSubheadline,
+    description: seoDescription,
     icons: [
       {
         src: "/icon-192x192.png",
@@ -499,9 +689,13 @@ Or deploy to any static hosting service (Netlify, Vercel, Cloudflare Pages, etc.
     "execution-summary.json": {
       generatedAt: new Date().toISOString(),
       pipelineTitle: pipelineTitle,
+      brandName: brandName,
       businessType: businessType,
       sections: ["Hero", "Services", "Booking CTA", "Footer"],
-      pwaReady: true
+      pwaReady: true,
+      hasContactInfo: Object.keys(contactInfo).length > 0,
+      hasOpeningHours: openingHours.length > 0,
+      hasSocialLinks: socialLinks.length > 0
     }
   };
 }
