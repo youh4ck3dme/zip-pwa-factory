@@ -173,4 +173,15 @@
     animation: none !important;
     box-shadow: 0 0 30px hsl(var(--genesis-accent) / 0.4), 0 0 80px hsl(var(--genesis-accent) / 0.25) !important;
   }
+  /* Hide heavy GPGPU animation on reduced motion */
+  .gl-canvas-container canvas {
+    display: none !important;
+  }
+}
+
+/* Performance: GPU acceleration hints */
+.gl-canvas-container {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
