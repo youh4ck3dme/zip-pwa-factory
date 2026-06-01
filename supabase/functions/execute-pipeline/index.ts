@@ -66,7 +66,11 @@ function isAgencyPipeline(pipelineTitle: string | undefined, context: Record<str
  */
 function extractText(data: unknown, fallback: string): string {
   if (!data) return fallback;
-  if (typeof data === 'string') return data;
+  if (typeof data === 'string') {
+    // Guard: reject mock/placeholder strings
+    if (data.startsWith('[MOCK') || data.length < 1) return fallback;
+    return data;
+  }
   if (typeof data === 'object' && data !== null) {
     const obj = data as Record<string, unknown>;
     return extractText(obj.headline || obj.title || obj.name || obj.text || obj.content, fallback);
@@ -79,7 +83,10 @@ function extractText(data: unknown, fallback: string): string {
  */
 function extractDescription(data: unknown, fallback: string): string {
   if (!data) return fallback;
-  if (typeof data === 'string') return data;
+  if (typeof data === 'string') {
+    if (data.startsWith('[MOCK') || data.length < 1) return fallback;
+    return data;
+  }
   if (typeof data === 'object' && data !== null) {
     const obj = data as Record<string, unknown>;
     return extractDescription(
@@ -106,82 +113,202 @@ function extractItems(data: unknown): Array<{ name: string; description: string;
 }
 
 /**
+ * Extract business name from raw prompt input.
+ * Handles patterns like "called X", "named X", "for X restaurant".
+ */
+function extractBusinessNameFromInput(input: string): string {
+  if (!input) return "";
+  // "called Éclat Fine Dining" or "called 'Éclat'"
+  const calledMatch = input.match(/\bcalled\s+['"]?([^,'"\n]+?)['"]?(?:\s+with|\s+and|,|$)/i);
+  if (calledMatch) return calledMatch[1].trim();
+  // "named X"
+  const namedMatch = input.match(/\bnamed\s+['"]?([^,'"\n]+?)['"]?(?:\s+with|\s+and|,|$)/i);
+  if (namedMatch) return namedMatch[1].trim();
+  // "for X restaurant/cafe/salon"
+  const forMatch = input.match(/\bfor\s+(?:a\s+)?(?:premium\s+)?(?:pwa\s+)?(?:landing\s+page\s+for\s+)?(?:a\s+)?([A-Z][^,\n]+?)\s+(?:restaurant|cafe|salon|spa|bistro|diner|bar|shop)/i);
+  if (forMatch) return forMatch[1].trim();
+  return "";
+}
+
+/**
+ * Extract a quoted string that appears after a label in the prompt.
+ * e.g. extractQuotedAfterLabel(input, 'hero headline') -> 'A Symphony of Flavors'
+ */
+function extractQuotedAfterLabel(input: string, label: string): string {
+  if (!input) return "";
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // After the label, look for a quoted string: "...", '...', or “...”
+  const re = new RegExp(escaped + '[^"\u201c\u2018]*["\u201c\u2018\'](.*?)["\u201d\u2019\']', 'i');
+  const m = input.match(re);
+  if (m) return m[1].trim();
+  return "";
+}
+
+/**
+ * Extract signature dishes from the prompt.
+ * Handles "signature dishes X and Y", "signature dishes X, Y"
+ */
+function extractSignatureDishesFromInput(input: string): Array<{ name: string; description: string }> {
+  if (!input) return [];
+  const m = input.match(/\bsignature\s+dishes?\s+([^,\.\n]+(?:and[^,\.\n]+)?)/i);
+  if (!m) return [];
+  const raw = m[1];
+  // Split on " and " or commas
+  const dishes = raw.split(/\s+and\s+|,\s*/i)
+    .map(d => d.trim())
+    .filter(d => d.length > 0 && d.length < 60);
+  return dishes.map(name => ({ name, description: `A signature dish crafted with precision and passion.` }));
+}
+
+/**
+ * Extract CTA text from the prompt.
+ * Handles strong "Reserve Your Table" CTA or CTA inside quotes.
+ */
+function extractCtaFromInput(input: string): string {
+  if (!input) return "";
+  // Look for "strong \"...\"", "CTA \"...\"" or quoted text near CTA
+  const ctaMatch = input.match(/(?:strong|CTA|call[- ]to[- ]action)[^"\u201c\u2018]*["\u201c\u2018]([^"\u201d\u2019\']{2,60})["\u201d\u2019\']/i);
+  if (ctaMatch) return ctaMatch[1].trim();
+  // Broader: any quoted phrase that looks like a CTA verb phrase
+  const quotedCta = input.match(/["\u201c\u2018]([A-Z][^"\u201d\u2019\']{4,50})["\u201d\u2019\']/g);
+  if (quotedCta) {
+    // Pick the one that looks most CTA-like (contains a verb like Reserve, Book, Order, Get)
+    const ctaVerbs = /\b(reserve|book|order|get|start|join|try|visit|contact|call|schedule)/i;
+    const best = quotedCta.find(q => ctaVerbs.test(q));
+    if (best) return best.replace(/^["\u201c\u2018]|["\u201d\u2019\']$/g, '').trim();
+  }
+  return "";
+}
+
+/**
+ * Check if a context value is a real structured object (not a mock string / raw AI text).
+ */
+function isStructuredObject(val: unknown): val is Record<string, unknown> {
+  return typeof val === 'object' && val !== null && !Array.isArray(val);
+}
+
+/**
  * Generate a polished Agency Landing PWA package
  * Creates a premium, production-ready landing page for local businesses
  */
 function generateAgencyLandingExport(pipelineTitle: string, context: Record<string, unknown>): Record<string, unknown> {
   const safeContext = JSON.parse(JSON.stringify(context));
   
-  // Extract agency-specific data from context
-  const agencySpec = safeContext.agencySpec || {};
-  const heroSection = safeContext.heroSection || {};
-  const services = safeContext.services || [];
-  const bookingCTA = safeContext.bookingCTA || {};
-  
-  // Extract from agencySpec if it has structured data
-  let brandName = pipelineTitle;
-  let seoDescription = `Discover the best ${pipelineTitle.toLowerCase()} services. Modern, professional, and convenient.`;
-  let heroHeadline = `Premium ${pipelineTitle} Experience`;
-  let heroSubheadline = `Discover the best ${pipelineTitle.toLowerCase()} services in town. Modern, professional, and convenient.`;
-  let heroCTA = "Book Now";
-  let contactInfo = {};
-  let openingHours = [];
-  let socialLinks = [];
-  let menuItems = [];
-  
-  // Try to extract rich data from agencySpec
-  if (typeof agencySpec === 'object' && agencySpec !== null) {
-    const spec = agencySpec as Record<string, unknown>;
-    
-    // Extract from pwaSpecification
-    const pwaSpec = spec.pwaSpecification as Record<string, unknown> | undefined;
-    if (pwaSpec) {
-      brandName = extractText(pwaSpec.name || pwaSpec.title, brandName);
-      seoDescription = extractDescription(pwaSpec.seo?.meta?.description || pwaSpec.description, seoDescription);
+  // The original user prompt is always available as context.input
+  const rawInput: string = typeof safeContext.input === 'string' ? safeContext.input : "";
+
+  // Extract agency-specific data from context (only when they are real structured objects)
+  const agencySpec = isStructuredObject(safeContext.agencySpec) ? safeContext.agencySpec as Record<string, unknown> : {};
+  const heroSectionCtx = isStructuredObject(safeContext.heroSection) ? safeContext.heroSection as Record<string, unknown> : {};
+  const servicesCtx = Array.isArray(safeContext.services) ? safeContext.services : [];
+  const bookingCTACtx = isStructuredObject(safeContext.bookingCTA) ? safeContext.bookingCTA as Record<string, unknown> : {};
+
+  // ── Extract from agencySpec (structured AI output) ──────────────────────────
+  let brandName = "";
+  let seoDescription = "";
+  let heroHeadline = "";
+  let heroSubheadline = "";
+  let heroCTA = "";
+  let contactInfo: Record<string, string> = {};
+  let openingHours: Array<{ name: string; description: string; price?: string }> = [];
+  let socialLinks: Array<{ name: string; description: string; price?: string }> = [];
+  let menuItems: Array<{ name: string; description: string; price?: string }> = [];
+
+  // -- agencySpec structured data --
+  const pwaSpec = isStructuredObject(agencySpec.pwaSpecification) ? agencySpec.pwaSpecification as Record<string, unknown> : null;
+  if (pwaSpec) {
+    brandName = extractText(pwaSpec.name || pwaSpec.title, "");
+    seoDescription = extractDescription((pwaSpec as any).seo?.meta?.description || pwaSpec.description, "");
+  }
+
+  const landingPage = isStructuredObject(agencySpec.landingPageStructure) ? agencySpec.landingPageStructure as Record<string, unknown> : null;
+  if (landingPage) {
+    const hero = isStructuredObject(landingPage.heroSection) ? landingPage.heroSection as Record<string, unknown> : null;
+    if (hero) {
+      if (!heroHeadline) heroHeadline = extractText(hero.headline || hero.title, "");
+      if (!heroSubheadline) heroSubheadline = extractDescription(hero.subheadline || hero.tagline || hero.description, "");
+      if (!heroCTA) heroCTA = extractText(hero.cta || hero.callToAction, "");
     }
-    
-    // Extract from landingPageStructure
-    const landingPage = spec.landingPageStructure as Record<string, unknown> | undefined;
-    if (landingPage) {
-      const hero = landingPage.heroSection as Record<string, unknown> | undefined;
-      if (hero) {
-        heroHeadline = extractText(hero.headline || hero.title, heroHeadline);
-        heroSubheadline = extractDescription(hero.subheadline || hero.tagline || hero.description, heroSubheadline);
-        heroCTA = extractText(hero.cta || hero.callToAction, heroCTA);
-      }
-      
-      // Extract contact/footers
-      const footer = landingPage.footer as Record<string, unknown> | undefined;
-      if (footer) {
-        contactInfo = {
-          phone: extractText(footer.contact?.phone, "+1-555-0123"),
-          email: extractText(footer.contact?.email, "contact@business.com"),
-          address: extractText(footer.contact?.address, "123 Main Street")
-        };
-        openingHours = extractItems(footer.hours || footer.openingHours) || [];
-        socialLinks = extractItems(footer.social || footer.socialMedia) || [];
-      }
-      
-      // Extract menu for restaurants
-      const menu = landingPage.menuPreview as Record<string, unknown> | undefined;
-      if (menu) {
-        menuItems = extractItems(menu.items || menu.dishes);
-      }
-      
-      // Extract reservation system
-      const reservation = spec.reservationSystem as Record<string, unknown> | undefined;
-      if (reservation) {
-        bookingHeadline = extractText(reservation.headline || reservation.title, "Ready to book?");
-        bookingDescription = extractDescription(reservation.description, `Schedule your appointment today and experience the difference.`);
-        bookingButtonText = extractText(reservation.buttonText || reservation.cta, "Book Appointment");
-      }
+
+    const footer = isStructuredObject(landingPage.footer) ? landingPage.footer as Record<string, unknown> : null;
+    if (footer) {
+      contactInfo = {
+        phone: extractText((footer.contact as any)?.phone, "+1-555-0123"),
+        email: extractText((footer.contact as any)?.email, "contact@business.com"),
+        address: extractText((footer.contact as any)?.address, "123 Main Street")
+      };
+      openingHours = extractItems(footer.hours || footer.openingHours);
+      socialLinks = extractItems(footer.social || footer.socialMedia);
     }
-    
-    // Fallback to direct fields in agencySpec
-    if (!brandName || brandName === pipelineTitle) {
-      brandName = extractText(spec.name || spec.title || spec.businessName, pipelineTitle);
+
+    const menu = isStructuredObject(landingPage.menuPreview) ? landingPage.menuPreview as Record<string, unknown> : null;
+    if (menu) menuItems = extractItems(menu.items || menu.dishes);
+
+    // reservation system inside landingPageStructure
+    const reservationInLP = isStructuredObject(landingPage.reservationSystem) ? landingPage.reservationSystem as Record<string, unknown> : null;
+    if (reservationInLP) {
+      if (!heroCTA) heroCTA = extractText(reservationInLP.buttonText || reservationInLP.cta, "");
     }
   }
+
+  // reservation system at top-level agencySpec
+  const reservationSpec = isStructuredObject(agencySpec.reservationSystem) ? agencySpec.reservationSystem as Record<string, unknown> : null;
+  if (reservationSpec) {
+    if (!heroCTA) heroCTA = extractText(reservationSpec.buttonText || reservationSpec.cta, "");
+  }
+
+  // Direct fields in agencySpec
+  if (!brandName) brandName = extractText(agencySpec.name || agencySpec.title || agencySpec.businessName, "");
+
+  // -- heroSection context key --
+  if (!heroHeadline) heroHeadline = extractText(heroSectionCtx.headline || heroSectionCtx.title, "");
+  if (!heroSubheadline) heroSubheadline = extractDescription(heroSectionCtx.subheadline || heroSectionCtx.tagline || heroSectionCtx.description, "");
+  if (!heroCTA) heroCTA = extractText(heroSectionCtx.cta || heroSectionCtx.callToAction, "");
+
+  // -- bookingCTA context key --
+  if (!heroCTA) heroCTA = extractText(bookingCTACtx.buttonText || bookingCTACtx.cta, "");
+
+  // ── Fallback: parse raw input prompt ─────────────────────────────────────────
+  if (!brandName) {
+    brandName = extractBusinessNameFromInput(rawInput) || pipelineTitle;
+  }
+  if (!heroHeadline) {
+    heroHeadline = extractQuotedAfterLabel(rawInput, 'hero headline')
+      || extractQuotedAfterLabel(rawInput, 'headline')
+      || `Welcome to ${brandName}`;
+  }
+  if (!heroCTA) {
+    heroCTA = extractCtaFromInput(rawInput) || "Book Now";
+  }
+  if (!heroSubheadline) {
+    heroSubheadline = `Discover the best ${brandName.toLowerCase()} experience in town.`;
+  }
+
+  // Menu items: try to extract from raw input if still empty
+  if (menuItems.length === 0) {
+    menuItems = extractSignatureDishesFromInput(rawInput);
+  }
+
+  // Opening hours: add a fallback section if the prompt mentions opening hours
+  const mentionsHours = /opening hours?|hours of operation|open from|open daily/i.test(rawInput);
+  if (openingHours.length === 0 && mentionsHours) {
+    openingHours = [
+      { name: "Monday – Friday", description: "12:00 PM – 10:00 PM" },
+      { name: "Saturday", description: "11:00 AM – 11:00 PM" },
+      { name: "Sunday", description: "11:00 AM – 9:00 PM" },
+    ];
+  }
+
+  // Fallback final safety nets
+  if (!brandName || brandName === "undefined") brandName = pipelineTitle;
+  if (!heroHeadline || heroHeadline === "undefined") heroHeadline = `Welcome to ${brandName}`;
+  if (!heroCTA || heroCTA === "undefined") heroCTA = "Book Now";
+  if (!seoDescription) seoDescription = `Discover the best ${brandName.toLowerCase()} experience. Modern, professional, and convenient.`;
+
+  // -- Booking section init (will be overridden below if structured data exists) --
+  let bookingHeadline = "Ready to visit us?";
+  let bookingDescription = `Experience ${brandName} — where every detail is crafted for you.`;
+  let bookingButtonText = heroCTA;
   
   // Determine businessType from agencySpec or pipeline title
   let businessType = "Business";
@@ -204,20 +331,21 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
     }
   }
   
-  // Fallback: derive from pipeline title
+  // Fallback: derive from pipeline title OR rawInput
   const lowerTitle = pipelineTitle.toLowerCase();
+  const lowerInput = rawInput.toLowerCase();
   if (businessType === "Business" || !businessType) {
-    if (lowerTitle.includes("restaurant") || lowerTitle.includes("fine dining") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
-      businessType = "Fine Dining Restaurant";
-    } else if (lowerTitle.includes("barber")) {
-      businessType = "Barber Shop";
-    } else if (lowerTitle.includes("salon") || lowerTitle.includes("spa")) {
-      businessType = "Salon & Spa";
-    } else if (lowerTitle.includes("agency")) {
-      businessType = "Creative Agency";
-    } else if (lowerTitle.includes("shop") || lowerTitle.includes("store") || lowerTitle.includes("boutique")) {
-      businessType = "Shop";
-    }
+    const hasFD = lowerTitle.includes("restaurant") || lowerTitle.includes("fine dining") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")
+      || lowerInput.includes("restaurant") || lowerInput.includes("fine dining") || lowerInput.includes("cafe") || lowerInput.includes("bistro") || lowerInput.includes("diner");
+    const hasBarber = lowerTitle.includes("barber") || lowerInput.includes("barber");
+    const hasSalon = lowerTitle.includes("salon") || lowerTitle.includes("spa") || lowerInput.includes("salon") || lowerInput.includes("spa");
+    const hasAgency = lowerTitle.includes("agency") || lowerInput.includes("agency");
+    const hasShop = lowerTitle.includes("shop") || lowerTitle.includes("store") || lowerTitle.includes("boutique") || lowerInput.includes("shop") || lowerInput.includes("store") || lowerInput.includes("boutique");
+    if (hasFD) businessType = "Fine Dining Restaurant";
+    else if (hasBarber) businessType = "Barber Shop";
+    else if (hasSalon) businessType = "Salon & Spa";
+    else if (hasAgency) businessType = "Creative Agency";
+    else if (hasShop) businessType = "Shop";
   }
   
   // Determine colors from agencySpec theme or fallback to defaults
@@ -236,59 +364,65 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
     }
   }
   
-  // Fallback color scheme based on business type
+  // Fallback color scheme based on business type (checks both title and rawInput)
   if (primaryColor === "#1a1a2e") {
-    if (lowerTitle.includes("barber")) {
+    const hasFDColor = lowerTitle.includes("barber") || lowerInput.includes("barber");
+    const hasSalonColor = lowerTitle.includes("salon") || lowerTitle.includes("spa") || lowerInput.includes("salon") || lowerInput.includes("spa");
+    const hasFDineColor = lowerTitle.includes("restaurant") || lowerTitle.includes("fine dining") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")
+      || lowerInput.includes("restaurant") || lowerInput.includes("fine dining") || lowerInput.includes("cafe") || lowerInput.includes("bistro") || lowerInput.includes("diner");
+    const hasAgencyColor = lowerTitle.includes("agency") || lowerInput.includes("agency");
+    if (hasFDColor) {
       primaryColor = "#0f0f0f";
       secondaryColor = "#1a1a1a";
       accentColor = "#b8860b"; // Gold
-    } else if (lowerTitle.includes("salon") || lowerTitle.includes("spa")) {
+    } else if (hasSalonColor) {
       primaryColor = "#1a1a2e";
       secondaryColor = "#16213e";
       accentColor = "#e94560";
-    } else if (lowerTitle.includes("restaurant") || lowerTitle.includes("fine dining") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
+    } else if (hasFDineColor) {
       primaryColor = "#0f0f0f";
       secondaryColor = "#1a1a1a";
-      accentColor = "#d4a574";
-    } else if (lowerTitle.includes("agency")) {
+      accentColor = "#d4a574"; // Warm gold for restaurants
+    } else if (hasAgencyColor) {
       primaryColor = "#0a0a1a";
       secondaryColor = "#141428";
       accentColor = "#00d4ff";
     }
   }
   
-  // Generate booking CTA
-  let bookingHeadline = "Ready to book?";
-  let bookingDescription = `Schedule your appointment today and experience the difference.`;
-  let bookingButtonText = "Book Appointment";
-  
-  if (typeof bookingCTA === 'object' && bookingCTA !== null) {
-    const bcta = bookingCTA as Record<string, unknown>;
-    bookingHeadline = extractText(bcta.headline || bcta.title, bookingHeadline);
-    bookingDescription = extractDescription(bcta.description || bcta.text, bookingDescription);
-    bookingButtonText = extractText(bcta.buttonText || bcta.cta, bookingButtonText);
+  // Booking CTA: override from bookingCTACtx if available
+  if (Object.keys(bookingCTACtx).length > 0) {
+    bookingHeadline = extractText(bookingCTACtx.headline || bookingCTACtx.title, bookingHeadline);
+    bookingDescription = extractDescription(bookingCTACtx.description || bookingCTACtx.text, bookingDescription);
+    bookingButtonText = extractText(bookingCTACtx.buttonText || bookingCTACtx.cta, bookingButtonText);
+  }
+  // Ensure booking button reflects the CTA extracted from input
+  if (bookingButtonText === "Book Now" && heroCTA && heroCTA !== "Book Now") {
+    bookingButtonText = heroCTA;
+  }
+
+  // Generate services list: start from real services context, then fall back to menu items, then generic
+  let servicesList = extractItems(servicesCtx);
+  if (servicesList.length === 0 && menuItems.length > 0) {
+    // For restaurants, use signature dishes as the "services" showcase
+    servicesList = menuItems;
+  }
+  if (servicesList.length === 0) {
+    servicesList = [
+      { name: "Professional Service", description: "Expert care tailored to your needs" },
+      { name: "Premium Quality", description: "Only the best for our customers" },
+      { name: "Convenient Booking", description: "Easy online appointment scheduling" },
+      { name: "5-Star Experience", description: "Rated excellent by our clients" }
+    ];
   }
   
-  // Generate services list
-  const servicesList = extractItems(services) || [
-    { name: "Professional Service", description: "Expert care tailored to your needs" },
-    { name: "Premium Quality", description: "Only the best for our customers" },
-    { name: "Convenient Booking", description: "Easy online appointment scheduling" },
-    { name: "5-Star Experience", description: "Rated excellent by our clients" }
-  ];
-  
-  // Use menu items if available (for restaurants)
-  if (menuItems.length > 0) {
-    // If we have menu items and no services, use menu items as services
-    if (servicesList.length === 0 || (servicesList.length === 1 && servicesList[0].name === "Professional Service")) {
-      // Don't replace if services already has real data
-      if (servicesList.length === 4 && servicesList[0].name === "Professional Service") {
-        // These are fallbacks, replace with menu items
-        servicesList.splice(0, servicesList.length, ...menuItems.slice(0, 4));
-      }
-    }
-  }
-  
+  // Determine section titles based on business type
+  const isRestaurant = businessType === "Fine Dining Restaurant" || lowerInput.includes("restaurant") || lowerInput.includes("fine dining");
+  const servicesSectionTitle = isRestaurant
+    ? (menuItems.length > 0 ? "Signature Dishes" : "Our Menu")
+    : "Our Services";
+  const bookingSectionId = isRestaurant ? "reservation" : "booking";
+
   // Build HTML with rich data
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -569,12 +703,12 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
     <section class="hero">
       <h1>${heroHeadline.replace(/"/g, '&quot;')}</h1>
       <p>${heroSubheadline.replace(/"/g, '&quot;')}</p>
-      <a href="#booking" class="cta-button">${heroCTA.replace(/"/g, '&quot;')}</a>
+      <a href="#${bookingSectionId}" class="cta-button">${heroCTA.replace(/"/g, '&quot;')}</a>
     </section>
     
-    <!-- Services Section -->
+    <!-- Services / Menu Section -->
     <section class="services">
-      <h2>Our Services</h2>
+      <h2>${servicesSectionTitle}</h2>
       <div class="services-grid">
         ${servicesList.map((service: any) => {
           const name = service.name || service.title || "Service";
@@ -587,8 +721,8 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
       </div>
     </section>
     
-    <!-- Booking Section -->
-    <section class="booking" id="booking">
+    <!-- Booking / Reservation Section -->
+    <section class="booking" id="${bookingSectionId}">
       <h2>${bookingHeadline.replace(/"/g, '&quot;')}</h2>
       <p>${bookingDescription.replace(/"/g, '&quot;')}</p>
       <a href="tel:${(contactInfo as any).phone || '+1-555-0123'}" class="cta-button">${bookingButtonText.replace(/"/g, '&quot;')}</a>
