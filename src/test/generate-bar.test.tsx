@@ -26,10 +26,12 @@ describe("GenerateBar", () => {
     render(<GenerateBar loading={true} onGenerate={vi.fn()} />);
     
     const input = screen.getByPlaceholderText(/describe a pipeline…/i);
-    const button = screen.getByRole("button");
+    // Get the submit button (second button in the form, after the Sparkles preset button)
+    const buttons = screen.getAllByRole("button");
+    const generateButton = buttons[1]; // Second button is the Generate button
     
     expect(input).toBeDisabled();
-    expect(button).toBeDisabled();
+    expect(generateButton).toBeDisabled();
   });
 
   it("does not call onGenerate if input is empty", () => {
