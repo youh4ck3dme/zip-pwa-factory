@@ -14,7 +14,10 @@ import { SectionShell } from "@/components/cinematic/SectionShell";
 import { LiquidNavRail } from "@/components/cinematic/LiquidNavRail";
 import { GenesisLoader } from "@/components/cinematic/GenesisLoader";
 import { MagneticButton } from "@/components/cinematic/MagneticButton";
-import { GL } from "@/components/gl";
+import { lazy, Suspense } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+// Lazy load heavy GPGPU animation for performance (reduces initial JS by ~268kB)
+const GL = lazy(() => import("@/components/gl"));
 
 const Index = () => {
   const navigate = useNavigate();
@@ -212,8 +215,10 @@ const Index = () => {
           className="snap-section genesis-ambient relative w-full overflow-hidden bg-obsidian"
           style={{ "--genesis-accent": accentHsl } as CSSProperties}
         >
-          {/* MAIN HERO — GPGPU particle field */}
-          <GL color={accentHex} />
+          {/* MAIN HERO — GPGPU particle field (lazy loaded for performance) */}
+          <Suspense fallback={null}>
+            <GL color={accentHex} />
+          </Suspense>
           <div
             className="absolute inset-0 pointer-events-none transition-colors duration-1000"
             style={{

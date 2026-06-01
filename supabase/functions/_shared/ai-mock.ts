@@ -19,7 +19,7 @@ export function truncateTitle(query: string, max = 80): string {
  * Check if query is for an agency landing page
  * Detects keywords like: barber, salon, restaurant, cafe, agency, business, shop, store, landing, pwa
  */
-function isAgencyQuery(query: string): boolean {
+export function isAgencyQuery(query: string): boolean {
   const lowerQuery = query.toLowerCase();
   const agencyKeywords = [
     "barber", "salon", "spa", "restaurant", "cafe", "bistro", "diner",
@@ -34,7 +34,7 @@ function isAgencyQuery(query: string): boolean {
  * Build a polished agency landing page pipeline
  * Generates a premium PWA with booking CTA for local businesses
  */
-function buildAgencyPipeline(query: string): PipelineDraft {
+export function buildAgencyPipeline(query: string): PipelineDraft {
   const h = hashQuery(query);
   const suffix = (h % 900 + 100).toString();
   const title = truncateTitle(query);
