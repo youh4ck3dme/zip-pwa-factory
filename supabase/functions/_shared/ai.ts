@@ -11,6 +11,7 @@ export { buildMockPipeline, hashQuery, truncateTitle } from "./ai-mock.ts";
 export async function generatePipelineFromQuery(query: string): Promise<PipelineDraft> {
   // Agency routing guard: ALL agency prompts must use Agency Landing PWA pipeline
   // regardless of AI provider (mock or Mistral)
+  // Version 5: Enforce agency routing for barber/salon/restaurant/shop/booking queries
   if (isAgencyQuery(query)) {
     return buildAgencyPipeline(query);
   }
