@@ -15,7 +15,7 @@ interface GLProps {
  * Renders absolutely positioned full-bleed Canvas behind content.
  * 35%+ optimization: 128x128 particles (16384 vs 65536), faster reveal, lowered DPR, reduced motion support.
  */
-export const GL = ({ className = "", color = "#ffd49a", intensity = 1 }: GLProps) => {
+export default function GL({ className = "", color = "#ffd49a", intensity = 1 }: GLProps) {
   const isMobile = useIsMobile();
   const reduceMotion = useReducedMotion();
 

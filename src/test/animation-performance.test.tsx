@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { GL } from "../components/gl";
+import GL from "../components/gl";
 import { useIsMobile } from "../hooks/use-mobile";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
 import { vi } from "vitest";
