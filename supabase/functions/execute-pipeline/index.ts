@@ -6,6 +6,502 @@ import { interpolate, evaluateQualityGate } from "../_shared/pipeline-utils.ts";
 // @ts-ignore - Deno is available in Supabase Edge Functions
 declare const Deno: any;
 
+/**
+ * Generate a default basic PWA export package
+ */
+function generateDefaultExport(pipelineTitle: string, context: Record<string, unknown>): Record<string, unknown> {
+  const safeContext = JSON.parse(JSON.stringify(context));
+  return {
+    "index.html": `<!DOCTYPE html><html><head><title>${pipelineTitle}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body><div id="root"></div></body></html>`,
+    "manifest.json": { name: pipelineTitle, short_name: "App", display: "standalone", theme_color: "#000000" },
+    "context.json": safeContext
+  };
+}
+
+/**
+ * Check if the pipeline appears to be for an agency landing page
+ * Based on pipeline title and context keys
+ */
+function isAgencyPipeline(pipelineTitle: string | undefined, context: Record<string, unknown>): boolean {
+  if (!pipelineTitle) return false;
+  
+  const lowerTitle = pipelineTitle.toLowerCase();
+  const agencyKeywords = [
+    "barber", "salon", "spa", "restaurant", "cafe", "bistro", "diner",
+    "agency", "business", "shop", "store", "boutique", "studio",
+    "landing", "pwa", "premium", "professional"
+  ];
+  
+  // Check title
+  if (agencyKeywords.some(keyword => lowerTitle.includes(keyword))) {
+    return true;
+  }
+  
+  // Check context for agency-specific keys
+  const agencyContextKeys = ["agencySpec", "heroSection", "services", "bookingCTA", "agencyExport"];
+  if (agencyContextKeys.some(key => key in context)) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Generate a polished Agency Landing PWA package
+ * Creates a premium, production-ready landing page for local businesses
+ */
+function generateAgencyLandingExport(pipelineTitle: string, context: Record<string, unknown>): Record<string, unknown> {
+  const safeContext = JSON.parse(JSON.stringify(context));
+  
+  // Extract agency-specific data from context
+  const agencySpec = safeContext.agencySpec || {};
+  const heroSection = safeContext.heroSection || {};
+  const services = safeContext.services || [];
+  const bookingCTA = safeContext.bookingCTA || {};
+  
+  // Determine business type from title
+  const lowerTitle = pipelineTitle.toLowerCase();
+  let businessType = "Business";
+  let primaryColor = "#1a1a2e";
+  let secondaryColor = "#16213e";
+  let accentColor = "#e94560";
+  
+  if (lowerTitle.includes("barber")) {
+    businessType = "Barber Shop";
+    primaryColor = "#0f0f0f";
+    secondaryColor = "#1a1a1a";
+    accentColor = "#b8860b"; // Gold
+  } else if (lowerTitle.includes("salon") || lowerTitle.includes("spa")) {
+    businessType = "Salon & Spa";
+    primaryColor = "#1a1a2e";
+    secondaryColor = "#16213e";
+    accentColor = "#e94560"; // Pink/Red
+  } else if (lowerTitle.includes("restaurant") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
+    businessType = "Restaurant";
+    primaryColor = "#0f0f0f";
+    secondaryColor = "#1a1a1a";
+    accentColor = "#d4a574"; // Warm tone
+  } else if (lowerTitle.includes("agency")) {
+    businessType = "Creative Agency";
+    primaryColor = "#0a0a1a";
+    secondaryColor = "#141428";
+    accentColor = "#00d4ff"; // Cyan
+  }
+  
+  // Generate hero content
+  const heroHeadline = typeof heroSection === 'string' ? heroSection : 
+    (heroSection as any)?.headline || `Premium ${businessType} Experience`;
+  const heroSubheadline = (heroSection as any)?.subheadline || 
+    `Discover the best ${businessType.toLowerCase()} services in town. Modern, professional, and convenient.`;
+  const heroCTA = (heroSection as any)?.cta || "Book Now";
+  
+  // Generate services list
+  const servicesList = Array.isArray(services) ? services : [
+    { name: "Professional Service", description: "Expert care tailored to your needs" },
+    { name: "Premium Quality", description: "Only the best for our customers" },
+    { name: "Convenient Booking", description: "Easy online appointment scheduling" },
+    { name: "5-Star Experience", description: "Rated excellent by our clients" }
+  ];
+  
+  // Generate booking CTA
+  const bookingHeadline = typeof bookingCTA === 'string' ? bookingCTA : 
+    (bookingCTA as any)?.headline || "Ready to book?";
+  const bookingDescription = (bookingCTA as any)?.description || 
+    `Schedule your appointment today and experience the difference.`;
+  const bookingButtonText = (bookingCTA as any)?.buttonText || "Book Appointment";
+  
+  // Build HTML
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="${heroSubheadline}">
+  <meta name="theme-color" content="${primaryColor}">
+  <title>${pipelineTitle}</title>
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --primary: ${primaryColor};
+      --secondary: ${secondaryColor};
+      --accent: ${accentColor};
+      --text: #ffffff;
+      --text-dark: #1a1a2e;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+    
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 6rem 0 4rem 0;
+    }
+    
+    .hero h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 800;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      max-width: 600px;
+      margin: 0 auto 2.5rem auto;
+      opacity: 0.9;
+      color: rgba(255,255,255,0.85);
+    }
+    
+    .cta-button {
+      display: inline-block;
+      background: var(--accent);
+      color: var(--text);
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 50px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      text-decoration: none;
+    }
+    
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      background: color-mix(in srgb, var(--accent), white 20%);
+    }
+    
+    .cta-button:active {
+      transform: translateY(0);
+    }
+    
+    /* Services Section */
+    .services {
+      padding: 4rem 0;
+      background: var(--secondary);
+    }
+    
+    .services h2 {
+      text-align: center;
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 3rem;
+      position: relative;
+    }
+    
+    .services h2::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+    }
+    
+    .service-card {
+      background: rgba(255,255,255,0.05);
+      padding: 2rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+    
+    .service-card:hover {
+      transform: translateY(-5px);
+      background: rgba(255,255,255,0.08);
+      border-color: var(--accent);
+    }
+    
+    .service-card h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    
+    .service-card p {
+      color: rgba(255,255,255,0.7);
+      font-size: 0.95rem;
+    }
+    
+    /* Booking Section */
+    .booking {
+      padding: 4rem 0;
+      text-align: center;
+      background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 100%);
+    }
+    
+    .booking h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    
+    .booking p {
+      max-width: 500px;
+      margin: 0 auto 2rem auto;
+      opacity: 0.85;
+    }
+    
+    /* Footer */
+    .footer {
+      padding: 3rem 0;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      opacity: 0.7;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero {
+        padding: 4rem 0 2rem 0;
+      }
+      .services, .booking {
+        padding: 3rem 0;
+      }
+    }
+    
+    /* Install prompt for PWA */
+    .install-prompt {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: var(--text);
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      border: 1px solid var(--accent);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      z-index: 1000;
+      display: none;
+      animation: slideUp 0.4s ease;
+    }
+    
+    .install-prompt.visible {
+      display: block;
+    }
+    
+    .install-prompt button {
+      background: var(--accent);
+      color: var(--text);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    }
+    
+    /* Loading animation */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .loading {
+      animation: pulse 2s infinite;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <!-- Hero Section -->
+    <section class="hero">
+      <h1>${heroHeadline}</h1>
+      <p>${heroSubheadline}</p>
+      <a href="#booking" class="cta-button">${heroCTA}</a>
+    </section>
+    
+    <!-- Services Section -->
+    <section class="services">
+      <h2>Our Services</h2>
+      <div class="services-grid">
+        ${servicesList.map((service: any) => {
+          const name = service.name || service.title || "Service";
+          const description = service.description || service.details || "Professional service";
+          return `<div class="service-card">
+            <h3>${name}</h3>
+            <p>${description}</p>
+          </div>`;
+        }).join('')}
+      </div>
+    </section>
+    
+    <!-- Booking Section -->
+    <section class="booking" id="booking">
+      <h2>${bookingHeadline}</h2>
+      <p>${bookingDescription}</p>
+      <a href="tel:+1234567890" class="cta-button">${bookingButtonText}</a>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="footer">
+      <p>&copy; ${new Date().getFullYear()} ${pipelineTitle}. All rights reserved.</p>
+    </footer>
+  </div>
+  
+  <!-- Install Prompt -->
+  <div class="install-prompt" id="installPrompt">
+    <p><strong>Install App</strong><br>Add to home screen for offline access</p>
+    <button id="installButton">Install Now</button>
+  </div>
+  
+  <script>
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log(err));
+      });
+    }
+    
+    // PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('installPrompt').classList.add('visible');
+    });
+    
+    document.getElementById('installButton').addEventListener('click', () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          document.getElementById('installPrompt').style.display = 'none';
+        });
+      }
+    });
+    
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+  </script>
+</body>
+</html>`;
+  
+  // Build manifest
+  const manifest = {
+    name: pipelineTitle,
+    short_name: pipelineTitle.substring(0, 12),
+    start_url: "/",
+    display: "standalone",
+    background_color: primaryColor,
+    theme_color: primaryColor,
+    description: heroSubheadline,
+    icons: [
+      {
+        src: "/icon-192x192.png",
+        sizes: "192x192",
+        type: "image/png"
+      },
+      {
+        src: "/icon-512x512.png",
+        sizes: "512x512",
+        type: "image/png"
+      }
+    ]
+  };
+  
+  return {
+    "index.html": html,
+    "manifest.json": manifest,
+    "context.json": safeContext,
+    "sw.js": generateAgencyServiceWorker(pipelineTitle)
+  };
+}
+
+/**
+ * Generate a service worker for agency PWA with caching
+ */
+function generateAgencyServiceWorker(appName: string): string {
+  return `// Agency PWA Service Worker
+const CACHE_NAME = '${appName}-v1';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/sw.js',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => response || fetch(event.request))
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+});`;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -161,12 +657,12 @@ Deno.serve(async (req: Request) => {
                 logEntry.warnings.push("Validation issues found");
               }
             } else if (stepType === "export") {
-              const safeContext = JSON.parse(JSON.stringify(context));
-              stepData = {
-                "index.html": `<!DOCTYPE html><html><head><title>${pipeline.title}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body><div id="root"></div></body></html>`,
-                "manifest.json": { name: pipeline.title, short_name: "App", display: "standalone", theme_color: "#000000" },
-                "context.json": safeContext
-              };
+              // Check if this is an agency pipeline to generate premium output
+              if (isAgencyPipeline(pipeline.title, context)) {
+                stepData = generateAgencyLandingExport(pipeline.title, context);
+              } else {
+                stepData = generateDefaultExport(pipeline.title, context);
+              }
               artifacts = stepData as Record<string, unknown>;
               summary = "PWA package exported successfully.";
             } else if (stepType === "webhook") {
