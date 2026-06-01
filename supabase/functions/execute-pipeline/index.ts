@@ -183,12 +183,47 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
     }
   }
   
+  // Determine businessType from agencySpec or pipeline title
+  let businessType = "Business";
+  
+  // Try to extract businessType from agencySpec first
+  if (typeof agencySpec === 'object' && agencySpec !== null) {
+    const spec = agencySpec as Record<string, unknown>;
+    businessType = extractText(spec.businessType, "Business");
+    
+    // Extract from pwaSpecification
+    const pwaSpec = spec.pwaSpecification as Record<string, unknown> | undefined;
+    if (pwaSpec && !businessType) {
+      businessType = extractText(pwaSpec.businessType || pwaSpec.type, "Business");
+    }
+    
+    // Extract from landingPageStructure
+    const landingPage = spec.landingPageStructure as Record<string, unknown> | undefined;
+    if (landingPage && !businessType) {
+      businessType = extractText(landingPage.businessType, "Business");
+    }
+  }
+  
+  // Fallback: derive from pipeline title
+  const lowerTitle = pipelineTitle.toLowerCase();
+  if (businessType === "Business" || !businessType) {
+    if (lowerTitle.includes("restaurant") || lowerTitle.includes("fine dining") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
+      businessType = "Fine Dining Restaurant";
+    } else if (lowerTitle.includes("barber")) {
+      businessType = "Barber Shop";
+    } else if (lowerTitle.includes("salon") || lowerTitle.includes("spa")) {
+      businessType = "Salon & Spa";
+    } else if (lowerTitle.includes("agency")) {
+      businessType = "Creative Agency";
+    } else if (lowerTitle.includes("shop") || lowerTitle.includes("store") || lowerTitle.includes("boutique")) {
+      businessType = "Shop";
+    }
+  }
+  
   // Determine colors from agencySpec theme or fallback to defaults
   let primaryColor = "#1a1a2e";
   let secondaryColor = "#16213e";
   let accentColor = "#e94560";
-  
-  const lowerTitle = pipelineTitle.toLowerCase();
   
   // Extract colors from agencySpec theme if available
   if (typeof agencySpec === 'object' && agencySpec !== null) {
@@ -211,7 +246,7 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
       primaryColor = "#1a1a2e";
       secondaryColor = "#16213e";
       accentColor = "#e94560";
-    } else if (lowerTitle.includes("restaurant") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
+    } else if (lowerTitle.includes("restaurant") || lowerTitle.includes("fine dining") || lowerTitle.includes("cafe") || lowerTitle.includes("bistro") || lowerTitle.includes("diner")) {
       primaryColor = "#0f0f0f";
       secondaryColor = "#1a1a1a";
       accentColor = "#d4a574";
