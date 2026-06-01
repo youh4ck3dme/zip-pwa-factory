@@ -14,7 +14,22 @@ function generateDefaultExport(pipelineTitle: string, context: Record<string, un
   return {
     "index.html": `<!DOCTYPE html><html><head><title>${pipelineTitle}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body><div id="root"></div></body></html>`,
     "manifest.json": { name: pipelineTitle, short_name: "App", display: "standalone", theme_color: "#000000" },
-    "context.json": safeContext
+    "context.json": safeContext,
+    "README.md": `# ${pipelineTitle}
+
+Generated PWA package.
+
+## Installation
+Serve static files from any HTTP server:
+\`\`\`bash
+npx serve .
+\`\`\`
+`,
+    "execution-summary.json": {
+      generatedAt: new Date().toISOString(),
+      pipelineTitle: pipelineTitle,
+      pwaReady: true
+    }
   };
 }
 
@@ -454,7 +469,40 @@ function generateAgencyLandingExport(pipelineTitle: string, context: Record<stri
     "index.html": html,
     "manifest.json": manifest,
     "context.json": safeContext,
-    "sw.js": generateAgencyServiceWorker(pipelineTitle)
+    "sw.js": generateAgencyServiceWorker(pipelineTitle),
+    "README.md": `# ${pipelineTitle}
+
+A premium PWA landing page for ${businessType}.
+
+## Features
+- Modern, responsive design
+- Hero section with CTA
+- Services showcase
+- Booking call-to-action
+- Progressive Web App (PWA) ready
+
+## Installation
+Simply serve the static files from any HTTP server:
+
+\`\`\`bash
+npx serve .
+\`\`\`
+
+Or deploy to any static hosting service (Netlify, Vercel, Cloudflare Pages, etc.)
+
+## Files
+- index.html - Main landing page
+- manifest.json - PWA manifest
+- sw.js - Service worker for offline support
+- context.json - Generated context data
+`,
+    "execution-summary.json": {
+      generatedAt: new Date().toISOString(),
+      pipelineTitle: pipelineTitle,
+      businessType: businessType,
+      sections: ["Hero", "Services", "Booking CTA", "Footer"],
+      pwaReady: true
+    }
   };
 }
 
@@ -548,7 +596,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: pipeline, error: pErr } = await admin
       .from("pipelines")
-      .select("id, owner_id, steps")
+      .select("id, owner_id, title, steps")
       .eq("id", pipelineId)
       .maybeSingle();
     if (pErr || !pipeline) return json({ error: "Pipeline not found" }, 404);
