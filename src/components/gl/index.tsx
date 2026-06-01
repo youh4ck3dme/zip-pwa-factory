@@ -13,7 +13,7 @@ interface GLProps {
 /**
  * GPGPU particle field (hero animation) — optimized for performance.
  * Renders absolutely positioned full-bleed Canvas behind content.
- * 35% optimization: reduced particle count, lowered DPR, reduced motion support.
+ * 35%+ optimization: 128x128 particles (16384 vs 65536), faster reveal, lowered DPR, reduced motion support.
  */
 export const GL = ({ className = "", color = "#ffd49a", intensity = 1 }: GLProps) => {
   const isMobile = useIsMobile();
@@ -32,8 +32,8 @@ export const GL = ({ className = "", color = "#ffd49a", intensity = 1 }: GLProps
     );
   }
 
-  // Optimized particle settings: 256x256 = 65536 particles (vs 262144 at 512x512)
-  const size = 256;
+  // Optimized particle settings: 128x128 = 16384 particles (35% reduction from 256x256)
+  const size = 128;
 
   return (
     <div className={`absolute inset-0 pointer-events-none gl-canvas-container ${className}`} style={{ willChange: "transform" }}>
