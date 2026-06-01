@@ -1,7 +1,23 @@
 import { useState } from "react";
 import { Download, FileJson, Layout, FileText, CheckCircle2 } from "lucide-react";
 import { useBuilderStore } from "@/store/useBuilderStore";
+import { toast } from "sonner";
 import JSZip from "jszip";
+
+function safeParseJson(val: unknown): Record<string, any> {
+  if (typeof val === "object" && val !== null) {
+    return val as Record<string, any>;
+  }
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      console.warn("Failed to parse PWA asset JSON:", e);
+      return {};
+    }
+  }
+  return {};
+}
 
 export function ExportTab({ canEdit }: { canEdit: boolean }) {
   const execution = useBuilderStore((s) => s.execution);
@@ -22,8 +38,8 @@ export function ExportTab({ canEdit }: { canEdit: boolean }) {
   }
 
   const indexHtml = typeof assets["index.html"] === "string" ? assets["index.html"] : "";
-  const manifestObj = typeof assets["manifest.json"] === "object" ? assets["manifest.json"] : {};
-  const contextObj = typeof assets["context.json"] === "object" ? assets["context.json"] : {};
+  const manifestObj = safeParseJson(assets["manifest.json"]);
+  const contextObj = safeParseJson(assets["context.json"]);
   const swJs = typeof assets["service-worker.js"] === "string" ? assets["service-worker.js"] : (typeof assets["sw.js"] === "string" ? assets["sw.js"] : "");
 
   const summaryObj = {
@@ -61,7 +77,8 @@ npx serve .
       zip.file("execution-summary.json", JSON.stringify(summaryObj, null, 2));
       zip.file("README.md", readmeContent);
       if (swJs) {
-        zip.file(assets["service-worker.js"] ? "service-worker.js" : "sw.js", swJs);
+        const swFileName = typeof assets["service-worker.js"] === "string" ? "service-worker.js" : "sw.js";
+        zip.file(swFileName, swJs);
       }
 
       const blob = await zip.generateAsync({ type: "blob" });
@@ -73,8 +90,10 @@ npx serve .
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err) {
+      toast.success("PWA project ZIP downloaded successfully!");
+    } catch (err: any) {
       console.error("Export failed:", err);
+      toast.error(`Export failed: ${err?.message || String(err)}`);
     } finally {
       setDownloading(false);
     }
