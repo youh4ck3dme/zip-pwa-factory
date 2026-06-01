@@ -624,13 +624,19 @@ Deno.serve(async (req: Request) => {
     const isAdmin = !!roleRow;
     if (pipeline.owner_id !== userId && !isAdmin) return json({ error: "Forbidden" }, 403);
 
+    // Set timeout limits for MVP synchronous execution
+    const MAX_STEP_TIMEOUT = 45000; // 45s per step
+    const MAX_TOTAL_TIMEOUT = 180000; // 180s total
+    const executionStartTime = Date.now();
+
+    // Create execution with running status (not queued)
     const { data: exec, error: eErr } = await admin
       .from("executions")
       .insert({
         pipeline_id: pipelineId,
         owner_id: userId,
         initial_input: initialInput,
-        status: "queued",
+        status: "running",
         logs: [],
       })
       .select()
@@ -640,140 +646,166 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Failed to start execution" }, 500);
     }
 
-    // Start background execution
-    (async () => {
-      // Transition to running
-      await admin.from("executions").update({ status: "running", updated_at: new Date().toISOString() }).eq("id", exec.id);
+    // Execute all steps synchronously - NO background IIFE
+    const logs: Array<any> = [];
+    const context: Record<string, unknown> = { input: initialInput };
+    let artifacts: Record<string, unknown> = {};
+    let failed = false;
 
-      const logs: Array<any> = [];
-      const context: Record<string, unknown> = { input: initialInput };
-      let artifacts: Record<string, unknown> = {};
-      let failed = false;
-
-      try {
-        for (const step of steps) {
-          const startTime = Date.now();
-          const logEntry = {
-            stepId: step.id,
-            stepName: step.title || step.name || "Unknown Step",
-            outputKey: step.outputKey || "default_out",
-            status: "running",
-            promptUsed: step.prompt || "", // Fallback, will be updated if interpolation succeeds
-            data: null as unknown,
-            summary: undefined as string | undefined,
-            qualityScore: 0,
-            warnings: [] as string[],
-            durationMs: 0,
-            error: undefined as string | undefined,
-          };
-          logs.push(logEntry);
-          await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
-
-          try {
-            const promptUsed = interpolate(step.prompt || "", context);
-            const stepType = step.type || "ai_generate";
-            logEntry.promptUsed = promptUsed;
-            let stepData: unknown = null;
-            let summary = "";
-
-            if (stepType === "ai_generate") {
-              const instructions = step.expectedOutput === "json" 
-                ? `${promptUsed}\n\nIMPORTANT: Return ONLY valid JSON.`
-                : promptUsed;
-              const out = await completePrompt(instructions, logEntry.stepName);
-              if (step.expectedOutput === "json") {
-                try {
-                  // extract JSON block if wrapped in markdown
-                  const jsonStr = out.replace(/^```json/m, "").replace(/```$/m, "").trim();
-                  stepData = JSON.parse(jsonStr);
-                  summary = "JSON generated successfully.";
-                } catch(e) {
-                  stepData = out;
-                  summary = "Failed to parse JSON, returning raw text.";
-                  logEntry.warnings.push("JSON parse error");
-                }
-              } else {
-                stepData = out;
-              }
-            } else if (stepType === "transform") {
-              const out = await completePrompt(`Transform the following data based on the instructions.\nData: ${JSON.stringify(context)}\nInstructions: ${promptUsed}`);
-              stepData = out;
-            } else if (stepType === "validate") {
-              const out = await completePrompt(`Validate the context against these rules. Reply with "OK" if valid, or a list of errors if invalid.\nContext: ${JSON.stringify(context)}\nRules: ${promptUsed}`);
-              stepData = out;
-              if (!out.toLowerCase().startsWith("ok")) {
-                logEntry.warnings.push("Validation issues found");
-              }
-            } else if (stepType === "export") {
-              // Check if this is an agency pipeline to generate premium output
-              if (isAgencyPipeline(pipeline.title, context)) {
-                stepData = generateAgencyLandingExport(pipeline.title, context);
-              } else {
-                stepData = generateDefaultExport(pipeline.title, context);
-              }
-              artifacts = stepData as Record<string, unknown>;
-              summary = "PWA package exported successfully.";
-            } else if (stepType === "webhook") {
-              stepData = "Webhook placeholder - disabled by default";
-              logEntry.warnings.push("Webhook disabled");
-            } else {
-              stepData = `Unknown step type: ${stepType}`;
-            }
-
-            if (logEntry.outputKey) {
-              context[logEntry.outputKey] = stepData;
-            }
-
-            logEntry.status = "completed";
-            logEntry.data = stepData;
-            logEntry.summary = summary || undefined;
-            const qualityScore = logEntry.warnings.length > 0 ? 0.75 : 1.0;
-            const gate = evaluateQualityGate(qualityScore, 0.8);
-            if (!gate.passed) {
-              logEntry.warnings.push(...gate.warnings);
-            }
-            logEntry.qualityScore = qualityScore;
-            logEntry.durationMs = Date.now() - startTime;
-          } catch (err: any) {
-            console.error(`Step ${step.id} failed:`, err);
-            logEntry.status = "failed";
-            logEntry.error = err.message || "Step execution failed";
-            logEntry.durationMs = Date.now() - startTime;
-            failed = true;
-            await admin
-              .from("executions")
-              .update({ logs, status: "failed", updated_at: new Date().toISOString() })
-              .eq("id", exec.id);
-            break;
-          }
-          await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
+    try {
+      for (const step of steps) {
+        // Check total timeout
+        if (Date.now() - executionStartTime > MAX_TOTAL_TIMEOUT) {
+          throw new Error(`Total execution timeout exceeded (${MAX_TOTAL_TIMEOUT}ms)`);
         }
-        
-        if (!failed) {
+
+        const startTime = Date.now();
+        const logEntry = {
+          stepId: step.id,
+          stepName: step.title || step.name || "Unknown Step",
+          outputKey: step.outputKey || "default_out",
+          status: "running",
+          promptUsed: step.prompt || "",
+          data: null as unknown,
+          summary: undefined as string | undefined,
+          qualityScore: 0,
+          warnings: [] as string[],
+          durationMs: 0,
+          error: undefined as string | undefined,
+        };
+        logs.push(logEntry);
+        await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
+
+        try {
+          const promptUsed = interpolate(step.prompt || "", context);
+          const stepType = step.type || "ai_generate";
+          logEntry.promptUsed = promptUsed;
+          let stepData: unknown = null;
+          let summary = "";
+
+          // Check per-step timeout before AI calls
+          if (Date.now() - startTime > MAX_STEP_TIMEOUT) {
+            throw new Error(`Step timeout exceeded (${MAX_STEP_TIMEOUT}ms)`);
+          }
+
+          if (stepType === "ai_generate") {
+            const instructions = step.expectedOutput === "json" 
+              ? `${promptUsed}\n\nIMPORTANT: Return ONLY valid JSON.`
+              : promptUsed;
+            const out = await completePrompt(instructions, logEntry.stepName);
+            if (step.expectedOutput === "json") {
+              try {
+                const jsonStr = out.replace(/^```json/m, "").replace(/```$/m, "").trim();
+                stepData = JSON.parse(jsonStr);
+                summary = "JSON generated successfully.";
+              } catch(e) {
+                stepData = out;
+                summary = "Failed to parse JSON, returning raw text.";
+                logEntry.warnings.push("JSON parse error");
+              }
+            } else {
+              stepData = out;
+            }
+          } else if (stepType === "transform") {
+            const out = await completePrompt(`Transform the following data based on the instructions.\nData: ${JSON.stringify(context)}\nInstructions: ${promptUsed}`);
+            stepData = out;
+          } else if (stepType === "validate") {
+            const out = await completePrompt(`Validate the context against these rules. Reply with "OK" if valid, or a list of errors if invalid.\nContext: ${JSON.stringify(context)}\nRules: ${promptUsed}`);
+            stepData = out;
+            if (!out.toLowerCase().startsWith("ok")) {
+              logEntry.warnings.push("Validation issues found");
+            }
+          } else if (stepType === "export") {
+            if (isAgencyPipeline(pipeline.title, context)) {
+              stepData = generateAgencyLandingExport(pipeline.title, context);
+            } else {
+              stepData = generateDefaultExport(pipeline.title, context);
+            }
+            artifacts = stepData as Record<string, unknown>;
+            summary = "PWA package exported successfully.";
+          } else if (stepType === "webhook") {
+            stepData = "Webhook placeholder - disabled by default";
+            logEntry.warnings.push("Webhook disabled");
+          } else {
+            stepData = `Unknown step type: ${stepType}`;
+          }
+
+          if (logEntry.outputKey) {
+            context[logEntry.outputKey] = stepData;
+          }
+
+          logEntry.status = "completed";
+          logEntry.data = stepData;
+          logEntry.summary = summary || undefined;
+          const qualityScore = logEntry.warnings.length > 0 ? 0.75 : 1.0;
+          const gate = evaluateQualityGate(qualityScore, 0.8);
+          if (!gate.passed) {
+            logEntry.warnings.push(...gate.warnings);
+          }
+          logEntry.qualityScore = qualityScore;
+          logEntry.durationMs = Date.now() - startTime;
+        } catch (err: any) {
+          console.error(`Step ${step.id} failed:`, err);
+          logEntry.status = "failed";
+          logEntry.error = err.message || "Step execution failed";
+          logEntry.durationMs = Date.now() - startTime;
+          failed = true;
           await admin
             .from("executions")
-            .update({ 
-              logs, 
-              status: "completed", 
-              pwa_assets: Object.keys(artifacts).length > 0 ? artifacts : null,
-              updated_at: new Date().toISOString() 
-            })
+            .update({ logs, status: "failed", updated_at: new Date().toISOString() })
             .eq("id", exec.id);
+          break;
         }
-      } catch (err) {
-        console.error("Execution loop failed:", err);
+        await admin.from("executions").update({ logs, updated_at: new Date().toISOString() }).eq("id", exec.id);
+      }
+      
+      // Get final execution state from DB
+      const { data: finalExec } = await admin
+        .from("executions")
+        .select("*")
+        .eq("id", exec.id)
+        .single();
+
+      if (!failed) {
         await admin
           .from("executions")
-          .update({
-            logs,
-            status: "failed",
-            updated_at: new Date().toISOString(),
+          .update({ 
+            logs, 
+            status: "completed", 
+            pwa_assets: Object.keys(artifacts).length > 0 ? artifacts : null,
+            updated_at: new Date().toISOString() 
           })
           .eq("id", exec.id);
       }
-    })();
 
-    return json(exec);
+      // Return the completed/failed execution with full data
+      const { data: resultExec } = await admin
+        .from("executions")
+        .select("*")
+        .eq("id", exec.id)
+        .single();
+
+      return json(resultExec);
+    } catch (err) {
+      console.error("Execution loop failed:", err);
+      await admin
+        .from("executions")
+        .update({
+          logs,
+          status: "failed",
+          error: err instanceof Error ? err.message : "Unknown error",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", exec.id);
+
+      const { data: failedExec } = await admin
+        .from("executions")
+        .select("*")
+        .eq("id", exec.id)
+        .single();
+
+      return json(failedExec || { error: "Execution failed" }, 500);
+    }
   } catch (e) {
     console.error("execute-pipeline error:", e);
     return json({ error: "An internal error occurred" }, 500);
