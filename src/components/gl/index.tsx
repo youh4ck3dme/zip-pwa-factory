@@ -46,17 +46,15 @@ export const GL = ({ className = "", color = "#ffd49a", intensity = 1 }: GLProps
         // Framelimit to 30fps for smoother lower-cost rendering
         frameloop="demand"
       >
-        <Suspense fallback={null}>
-          <Particles
-            size={size}
-            color={color}
-            opacity={0.6 * intensity}
-            pointSize={6}
-            timeScale={0.7}
-            noiseScale={0.8}
-            noiseIntensity={0.4}
-          />
-        </Suspense>
+        <Particles
+          size={size}
+          color={color}
+          opacity={0.6 * intensity}
+          pointSize={6}
+          timeScale={0.7}
+          noiseScale={0.8}
+          noiseIntensity={0.4}
+        />
       </Canvas>
     </div>
   );

@@ -15,7 +15,6 @@ import { LiquidNavRail } from "@/components/cinematic/LiquidNavRail";
 import { GenesisLoader } from "@/components/cinematic/GenesisLoader";
 import { MagneticButton } from "@/components/cinematic/MagneticButton";
 import { lazy, Suspense } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
 // Lazy load heavy GPGPU animation for performance (reduces initial JS by ~268kB)
 const GL = lazy(() => import("@/components/gl"));
 
