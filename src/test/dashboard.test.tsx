@@ -8,10 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 // Mock supabase client
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: vi.fn(),
-    auth: {
-      registerPasskey: vi.fn()
-    }
+    from: vi.fn()
   }
 }));
 

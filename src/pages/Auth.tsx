@@ -62,22 +62,7 @@ export default function Auth() {
     }
   };
 
-  const passkeySignIn = async () => {
-    setBusy(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPasskey();
-      if (error) throw error;
-      if (data) {
-        toast.success("Signed in with Biometrics!");
-        navigate("/", { replace: true });
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : typeof err === "object" && err !== null && "message" in err ? String((err as { message: unknown }).message) : "Biometric sign-in failed. Please ensure you have registered a passkey first.";
-      toast.error(msg);
-    } finally {
-      setBusy(false);
-    }
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -89,15 +74,6 @@ export default function Auth() {
           <h1 className="text-2xl font-bold">{mode === "signup" ? "Create account" : "Sign in"}</h1>
           <p className="text-sm text-muted-foreground">to Silk Road Pipeline</p>
         </div>
-
-        <button
-          type="button"
-          onClick={passkeySignIn}
-          disabled={busy}
-          className="w-full bg-card border border-border hover:bg-muted text-foreground py-2.5 rounded-md font-medium disabled:opacity-60 flex items-center justify-center gap-2"
-        >
-          <span>Fingerprint / Face ID</span>
-        </button>
 
         {/* Development bypass button */}
         <button

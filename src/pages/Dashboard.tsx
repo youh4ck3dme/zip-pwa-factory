@@ -86,22 +86,6 @@ export default function Dashboard() {
           </Link>
           <h1 className="text-xl font-bold flex-1">My Pipelines</h1>
           
-          <button
-            onClick={async () => {
-              try {
-                const { data, error } = await supabase.auth.registerPasskey();
-                if (error) throw error;
-                if (data) toast.success("Biometrics registered successfully!");
-              } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : typeof err === "object" && err !== null && "message" in err ? String((err as { message: unknown }).message) : "Failed to register biometrics";
-                toast.error(msg);
-              }
-            }}
-            className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            Enable Biometrics
-          </button>
-
           <Link
             to="/"
             className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"

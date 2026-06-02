@@ -15,6 +15,71 @@ export function truncateTitle(query: string, max = 80): string {
   return trimmed.slice(0, max - 1) + "…";
 }
 
+/**
+ * Check if query is for an agency landing page
+ * Detects keywords like: barber, salon, restaurant, cafe, agency, business, shop, store, landing, pwa
+ */
+export function isAgencyQuery(query: string): boolean {
+  const lowerQuery = query.toLowerCase();
+  const agencyKeywords = [
+    "barber", "salon", "spa", "restaurant", "cafe", "bistro", "diner",
+    "agency", "business", "shop", "store", "boutique", "studio",
+    "landing", "landing page", "pwa", "progressive web app",
+    "premium", "professional", "online booking", "appointment", "service"
+  ];
+  return agencyKeywords.some(keyword => lowerQuery.includes(keyword));
+}
+
+/**
+ * Build a polished agency landing page pipeline
+ * Generates a premium PWA with booking CTA for local businesses
+ */
+export function buildAgencyPipeline(query: string): PipelineDraft {
+  const h = hashQuery(query);
+  const suffix = (h % 900 + 100).toString();
+  const title = truncateTitle(query);
+
+  return {
+    title: title,
+    steps: [
+      {
+        name: `Generate Agency Spec ${suffix}`,
+        type: "ai_generate",
+        prompt: `Generate a premium PWA specification for a local business landing page. Input: {{input}}`,
+        expectedOutput: "json",
+        outputKey: "agencySpec"
+      },
+      {
+        name: `Create Hero Section ${suffix}`,
+        type: "ai_generate",
+        prompt: `Create a compelling hero section with headline, subheadline, and CTA button for: {{input}}`,
+        expectedOutput: "json",
+        outputKey: "heroSection"
+      },
+      {
+        name: `Create Services Section ${suffix}`,
+        type: "ai_generate",
+        prompt: `List 3-4 key services for this business: {{input}}`,
+        expectedOutput: "json",
+        outputKey: "services"
+      },
+      {
+        name: `Create Booking CTA ${suffix}`,
+        type: "ai_generate",
+        prompt: `Create a prominent booking call-to-action with compelling copy for: {{input}}`,
+        expectedOutput: "json",
+        outputKey: "bookingCTA"
+      },
+      {
+        name: `Export Agency PWA Package ${suffix}`,
+        type: "export",
+        prompt: `Export a premium agency landing page PWA package using all generated content`,
+        outputKey: "agencyExport"
+      },
+    ],
+  };
+}
+
 export function buildMockPipeline(query: string): PipelineDraft {
   const h = hashQuery(query);
   const suffix = (h % 900 + 100).toString();
@@ -47,6 +112,11 @@ export function buildMockPipeline(query: string): PipelineDraft {
         }
       ]
     };
+  }
+
+  // If this is an agency landing page request, use the agency pipeline
+  if (isAgencyQuery(query)) {
+    return buildAgencyPipeline(query);
   }
 
   return {
